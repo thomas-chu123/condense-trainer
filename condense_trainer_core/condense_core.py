@@ -77,6 +77,7 @@ class LitCondenseLLM(L.LightningModule):
 
     def loss_fn(self, logits, labels):
         # Extract logits tensor if it's a model output object
+        labels = torch.LongTensor(labels)
         if hasattr(logits, 'logits'):
             logits = logits.logits
         print(f"Computing loss with logits shape: {logits.shape}, labels shape: {labels.shape}")
