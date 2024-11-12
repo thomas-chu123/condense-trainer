@@ -75,10 +75,10 @@ class LitCondenseLLM(L.LightningModule):
         return condensed_tokens
 
     def loss_fn(self, logits, labels):
-        print(f"Computing loss with logits shape: {logits.shape}, labels shape: {labels.shape}")
         # Extract logits tensor if it's a model output object
         if hasattr(logits, 'logits'):
             logits = logits.logits
+        print(f"Computing loss with logits shape: {logits.shape}, labels shape: {labels.shape}")
             
         logits = logits[:, :-1, :].contiguous().view(-1, logits.size(-1))
         labels = labels[:, 1:].contiguous().view(-1)
@@ -120,6 +120,8 @@ class LitCondenseLLM(L.LightningModule):
         
         # Generate final embeddings
         uncondensed_embeds = self.model.get_input_embeddings()(uncondensed_ids)
+        print(f"Uncondensed embeddings shape: {uncondensed_embeds.shape}")
+        print(f"Condensed tokens shape: {condensed_tokens.shape}")
         inputs_embeds = torch.cat([condensed_tokens, uncondensed_embeds], dim=1)
         print(f"Final embeddings shape: {inputs_embeds.shape}")
         
@@ -128,7 +130,8 @@ class LitCondenseLLM(L.LightningModule):
     def training_step(self, batch):
         print("Starting training step")
         inputs_embeds, labels = self._process_batch(batch)
-        logits = self.separate_decoder(inputs_embeds=inputs_embeds)
+        output = self.separate_decoder(inputs_embeds=inputs_embeds)
+        logits = output.logits
         loss = self.loss_fn(logits, labels)
         self.log("train_loss", loss, on_step=True, on_epoch=True, prog_bar=True)
         print(f"Training step complete, loss: {loss.item()}")
@@ -137,7 +140,8 @@ class LitCondenseLLM(L.LightningModule):
     def validation_step(self, batch):
         print("Starting validation step")
         inputs_embeds, labels = self._process_batch(batch)
-        logits = self.separate_decoder(inputs_embeds=inputs_embeds)
+        output = self.separate_decoder(inputs_embeds=inputs_embeds)
+        logits = output.logits
         loss = self.loss_fn(logits, labels)
         self.log("val_loss", loss, on_step=False, on_epoch=True, prog_bar=True)
         print(f"Validation step complete, loss: {loss.item()}")
