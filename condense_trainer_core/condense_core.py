@@ -18,7 +18,7 @@ class LitCondenseLLM(L.LightningModule):
         super().__init__()
         
         # Initialize model and tokenizer
-        self.model = MistralForCausalLM.from_pretrained(model_id)
+        self.model = MistralForCausalLM.from_pretrained(model_id, torch_dtype=torch.bfloat16)
         self.tokenizer = AutoTokenizer.from_pretrained(model_id)
         
         # Model configuration
@@ -155,7 +155,8 @@ class LitCondenseLLM(L.LightningModule):
 
     def create_separate_decoder(self, model_name_or_pretrained_path, **kwargs):
         self.separate_decoder = MistralForCausalLM.from_pretrained(
-            model_name_or_pretrained_path, **kwargs
+            model_name_or_pretrained_path,
+            torch_dtype=torch.bfloat16,
         )
         for param in self.separate_decoder.parameters():
             param.requires_grad = False

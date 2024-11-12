@@ -30,15 +30,15 @@ trainer = Trainer(
     max_epochs=10,
     precision="bf16",
     gradient_clip_val=1.0,
-    log_every_n_steps=10,
+    log_every_n_steps=5,
     check_val_every_n_epoch=1,
     logger=wandb_logger,
-    val_check_interval=1e-4,
+    val_check_interval=0.25,
     limit_val_batches=10,
-    enable_checkpointing=False,
+    enable_checkpointing=True,
 )
 
-train_loader = DataLoader(train_dataset, batch_size=1, shuffle=True)
-validation_loader = DataLoader(validation_dataset, batch_size=1, shuffle=False)
+train_loader = DataLoader(train_dataset, batch_size=1, shuffle=True, num_workers=8)
+validation_loader = DataLoader(validation_dataset, batch_size=1, shuffle=False, num_workers=8)
 
 trainer.fit(lit_model, train_loader, validation_loader)
