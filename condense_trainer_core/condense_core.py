@@ -70,6 +70,7 @@ class LitCondenseLLM(L.LightningModule):
         output = self.model(inputs_embeds=prompt_embeds, output_hidden_states=True)
         hidden_states = output.hidden_states[-2:]
         concated_hidden_states = torch.cat(hidden_states, dim=-1)
+        concated_hidden_states = concated_hidden_states[:, -self.num_condense_tokens:, :]
         condensed_tokens = self.linear(concated_hidden_states)
         print(f"Forward pass output shape: {condensed_tokens.shape}")
         return condensed_tokens
