@@ -1,0 +1,9 @@
+__pycache__
+*_logs
+wandb
+*.pyc
+*.ckpt
+checkpoints
+*.json
+*.safetensors
+best_model
