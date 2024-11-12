@@ -70,6 +70,13 @@ class LitCondenseLLM(L.LightningModule):
     def loss_fn(self, logits, labels):
         logits = logits[:, :-1, :].contiguous().view(-1, logits.size(-1))
         labels = labels[:, 1:].contiguous().view(-1)
+        
+        # Get padding token ID from tokenizer
+        pad_token_id = self.tokenizer.pad_token_id
+        
+        # Convert padding tokens to -100
+        labels[labels == pad_token_id] = -100
+        
         return F.cross_entropy(logits, labels, ignore_index=-100)
 
     def _process_batch(self, batch):

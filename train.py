@@ -15,6 +15,10 @@ lit_model = LitCondenseLLM(model_id, num_condense_tokens=num_condense_tokens)
 
 tokenizer = lit_model.tokenizer
 
+# Set padding token
+if tokenizer.pad_token is None:
+    tokenizer.pad_token = tokenizer.eos_token
+
 train_dataset = SubnetSyntheticDataset(
     dataset_id, tokenizer, num_condense_tokens, max_text_length, split="train"
 )
