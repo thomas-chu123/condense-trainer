@@ -136,37 +136,41 @@ class LitCondenseLLM(L.LightningModule):
         return loss
 
     def on_validation_epoch_end(self):
-        val_loss = self.trainer.callback_metrics["val_loss"]
-        if val_loss < self.best_val_loss:
-            self.best_val_loss = val_loss
-            # Save only the main model state dict
-            checkpoint = {
-                'model_state_dict': self.model.state_dict(),
-                'pre_condensed_tokens': self.pre_condensed_tokens,
-                'linear_state_dict': self.linear.state_dict(),
-                'val_loss': val_loss
-            }
-            
-            # Keep track of last 2 best checkpoints
-            if not hasattr(self, 'best_checkpoints'):
-                self.best_checkpoints = []
+        try:
+            val_loss = self.trainer.callback_metrics["val_loss"]
+            if val_loss < self.best_val_loss:
+                self.best_val_loss = val_loss
+                # Save only the main model state dict
+                checkpoint = {
+                    'model_state_dict': self.model.state_dict(),
+                    'pre_condensed_tokens': self.pre_condensed_tokens,
+                    'linear_state_dict': self.linear.state_dict(),
+                    'val_loss': val_loss
+                }
                 
-            checkpoint_path = f"best_model_val_loss_{val_loss:.4f}.pt"
-            torch.save(checkpoint, checkpoint_path)
-            
-            # Add new checkpoint path and remove old if more than 2
-            self.best_checkpoints.append(checkpoint_path)
-            if len(self.best_checkpoints) > 1:
-                # Remove oldest checkpoint file
-                old_checkpoint = self.best_checkpoints.pop(0)
-                if os.path.exists(old_checkpoint):
-                    os.remove(old_checkpoint)
-            # Push to HuggingFace Hub
-            self.hf_api.upload_file(
-                path_or_fileobj=checkpoint_path,
-                path_in_repo=checkpoint_path,
-                repo_id=self.hf_save_repo,
-            )
+                # Keep track of last 2 best checkpoints
+                if not hasattr(self, 'best_checkpoints'):
+                    self.best_checkpoints = []
+                    
+                checkpoint_path = f"best_model_val_loss_{val_loss:.4f}.pt"
+                torch.save(checkpoint, checkpoint_path)
+                
+                # Add new checkpoint path and remove old if more than 2
+                self.best_checkpoints.append(checkpoint_path)
+                if len(self.best_checkpoints) > 1:
+                    # Remove oldest checkpoint file
+                    old_checkpoint = self.best_checkpoints.pop(0)
+                    if os.path.exists(old_checkpoint):
+                        os.remove(old_checkpoint)
+                # Push to HuggingFace Hub
+                self.hf_api.create_repo(repo_id=self.hf_save_repo, repo_type="model", exist_ok=True)
+                self.hf_api.upload_file(
+                    path_or_fileobj=checkpoint_path,
+                    path_in_repo=checkpoint_path,
+                    repo_id=self.hf_save_repo,
+                )
+        except Exception as e:
+            print(f"Error in on_validation_epoch_end: {e}")
             
     def configure_optimizers(self):
         param_to_optimize = [p for p in self.model.parameters() if p.requires_grad]
