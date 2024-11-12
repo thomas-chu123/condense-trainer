@@ -83,9 +83,10 @@ class LitCondenseLLM(L.LightningModule):
         """Helper method to process a batch and generate embeddings and tokens"""
         context_ids = batch["context"]
         uncondensed_ids = batch["uncondensed"]
+        n_batch = context_ids.shape[0]
         labels = torch.concatenate(
             (
-                -100 * torch.ones(1, self.num_condense_tokens).to(context_ids.device),
+                -100 * torch.ones(n_batch, self.num_condense_tokens).to(context_ids.device),
                 uncondensed_ids,
             ),
             dim=1,
