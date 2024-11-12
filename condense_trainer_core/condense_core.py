@@ -56,7 +56,7 @@ class LitCondenseLLM(L.LightningModule):
             param.requires_grad = False
         # Unfreeze layers and norm
         for i in range(n_layers):
-            for param in self.model.layers[-i].parameters():
+            for param in self.model.model.layers[-i].parameters():
                 param.requires_grad = True
         self.model.model.norm.requires_grad = True
 
