@@ -66,15 +66,7 @@ class SubnetSyntheticDataset(Dataset):
         uncondensed_ids = torch.concatenate(
             (activation_prompt_ids, expected_completion_ids), dim=1
         )
-        labels = torch.concatenate(
-            (
-                -100 * torch.ones(1, self.num_condense_tokens),
-                uncondensed_ids,
-            ),
-            dim=1,
-        )
         return {
             "context": context_ids,
             "uncondensed": uncondensed_ids,
-            "labels": labels,
         }
