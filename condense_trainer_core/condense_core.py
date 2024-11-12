@@ -168,6 +168,7 @@ class LitCondenseLLM(L.LightningModule):
                     path_or_fileobj=checkpoint_path,
                     path_in_repo=checkpoint_path,
                     repo_id=self.hf_save_repo,
+                    run_as_future=True,
                 )
         except Exception as e:
             print(f"Error in on_validation_epoch_end: {e}")
