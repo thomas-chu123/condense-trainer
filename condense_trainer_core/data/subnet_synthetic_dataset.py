@@ -67,6 +67,6 @@ class SubnetSyntheticDataset(Dataset):
             (activation_prompt_ids, expected_completion_ids), dim=1
         )
         return {
-            "context": context_ids,
-            "uncondensed": uncondensed_ids,
+            "context": context_ids.squeeze(0),
+            "uncondensed": uncondensed_ids.squeeze(0),
         }
