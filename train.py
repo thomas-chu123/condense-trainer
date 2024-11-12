@@ -2,7 +2,8 @@ from condense_trainer_core import LitCondenseLLM, SubnetSyntheticDataset
 from lightning import Trainer
 from torch.utils.data import DataLoader
 from lightning.pytorch.loggers import WandbLogger
-
+import torch
+torch.set_float32_matmul_precision('medium')
 wandb_logger = WandbLogger(project="Condense-Llama")
 
 num_condense_tokens = 512
