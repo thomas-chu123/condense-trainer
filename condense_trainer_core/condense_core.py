@@ -69,7 +69,7 @@ class LitCondenseLLM(L.LightningModule):
 
     def loss_fn(self, logits, labels):
         # Extract logits tensor if it's a model output object
-        labels = torch.LongTensor(labels)
+        # Convert labels to LongTensor
         if hasattr(logits, 'logits'):
             logits = logits.logits
             
@@ -81,7 +81,7 @@ class LitCondenseLLM(L.LightningModule):
         
         # Convert padding tokens to -100
         labels[labels == pad_token_id] = -100
-        
+        labels = labels.long()
         loss = F.cross_entropy(logits, labels, ignore_index=-100)
         return loss
 
