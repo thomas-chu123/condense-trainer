@@ -33,8 +33,8 @@ trainer = Trainer(
     log_every_n_steps=5,
     check_val_every_n_epoch=1,
     logger=wandb_logger,
-    val_check_interval=0.25,
-    limit_val_batches=10,
+    val_check_interval=0.01,
+    limit_val_batches=100,
     enable_checkpointing=True,
 )
 

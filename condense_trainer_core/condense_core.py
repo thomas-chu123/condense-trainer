@@ -7,6 +7,7 @@ from transformers import (
     MistralForCausalLM,
 )
 from transformers import TextGenerationPipeline
+import os
 
 
 class LitCondenseLLM(L.LightningModule):
@@ -141,8 +142,21 @@ class LitCondenseLLM(L.LightningModule):
                 'linear_state_dict': self.linear.state_dict(),
                 'val_loss': val_loss
             }
+            
+            # Keep track of last 2 best checkpoints
+            if not hasattr(self, 'best_checkpoints'):
+                self.best_checkpoints = []
+                
             checkpoint_path = f"best_model_val_loss_{val_loss:.4f}.pt"
             torch.save(checkpoint, checkpoint_path)
+            
+            # Add new checkpoint path and remove old if more than 2
+            self.best_checkpoints.append(checkpoint_path)
+            if len(self.best_checkpoints) > 2:
+                # Remove oldest checkpoint file
+                old_checkpoint = self.best_checkpoints.pop(0)
+                if os.path.exists(old_checkpoint):
+                    os.remove(old_checkpoint)
 
     def configure_optimizers(self):
         param_to_optimize = [p for p in self.model.parameters() if p.requires_grad]
