@@ -68,6 +68,10 @@ class LitCondenseLLM(L.LightningModule):
         return condensed_tokens
 
     def loss_fn(self, logits, labels):
+        # Extract logits tensor if it's a model output object
+        if hasattr(logits, 'logits'):
+            logits = logits.logits
+            
         logits = logits[:, :-1, :].contiguous().view(-1, logits.size(-1))
         labels = labels[:, 1:].contiguous().view(-1)
         
