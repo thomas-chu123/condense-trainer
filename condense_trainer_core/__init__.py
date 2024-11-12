@@ -1,4 +1,4 @@
 from .condense_core import LitCondenseLLM
-from .data import AutoEncoderDataset
+from .data import SubnetSyntheticDataset
 
-__all__ = ["LitCondenseLLM", "AutoEncoderDataset"]
+__all__ = ["LitCondenseLLM", "SubnetSyntheticDataset"]

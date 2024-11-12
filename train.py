@@ -1,42 +1,25 @@
-from condense_trainer_core import LitCondenseLLM, AutoEncoderDataset
-from datasets import load_dataset
-from peft import LoraConfig, PromptTuningConfig, PromptTuningInit
+from condense_trainer_core import LitCondenseLLM, SubnetSyntheticDataset
 from lightning import Trainer
 from torch.utils.data import DataLoader
-from lightning.pytorch.callbacks import ModelCheckpoint
 from lightning.pytorch.loggers import WandbLogger
 
 wandb_logger = WandbLogger(project="Condense-Llama")
 
-dataset_id = "gair-prox/FineWeb-pro"
-model_id = "meta-llama/Llama-3.2-3B-Instruct"
-num_condense_tokens = 128
+num_condense_tokens = 512
 max_text_length = 4096
 
-dataset = load_dataset(dataset_id, streaming=False, split="train")
-dataset = dataset.train_test_split(test_size=1e-5)
-train_dataset = dataset["train"]
-test_dataset = dataset["test"]
+dataset_id = "Condense-AI/benchmark-condense-v0.1"
+model_id = "mistralai/Mistral-7B-Instruct-v0.2"
 
-peft_configs = [
-    PromptTuningConfig(
-        task_type="CAUSAL_LM",
-        prompt_tuning_init=PromptTuningInit.RANDOM,
-        num_virtual_tokens=num_condense_tokens,
-        tokenizer_name_or_path=model_id,
-    ),
-    LoraConfig(r=64, lora_dropout=0.05, task_type="CAUSAL_LM"),
-]
-
-lit_model = LitCondenseLLM(model_id, peft_configs=peft_configs)
+lit_model = LitCondenseLLM(model_id, num_condense_tokens=num_condense_tokens)
 
 tokenizer = lit_model.tokenizer
 
-train_dataset = AutoEncoderDataset(
-    train_dataset, tokenizer, num_condense_tokens, max_text_length
+train_dataset = SubnetSyntheticDataset(
+    dataset_id, tokenizer, num_condense_tokens, max_text_length, split="train"
 )
-test_dataset = AutoEncoderDataset(
-    test_dataset, tokenizer, num_condense_tokens, max_text_length
+validation_dataset = SubnetSyntheticDataset(
+    dataset_id, tokenizer, num_condense_tokens, max_text_length, split="test"
 )
 
 trainer = Trainer(
@@ -52,6 +35,6 @@ trainer = Trainer(
 )
 
 train_loader = DataLoader(train_dataset, batch_size=1, shuffle=True)
-test_loader = DataLoader(test_dataset, batch_size=1, shuffle=False)
+validation_loader = DataLoader(validation_dataset, batch_size=1, shuffle=False)
 
-trainer.fit(lit_model, train_loader, test_loader)
+trainer.fit(lit_model, train_loader, validation_loader)

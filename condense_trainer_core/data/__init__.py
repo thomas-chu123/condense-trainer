@@ -1,3 +1,3 @@
-from .auto_encoder_dataset import AutoEncoderDataset
+from .subnet_synthetic_dataset import SubnetSyntheticDataset
 
-__all__ = ["AutoEncoderDataset"]
+__all__ = ["SubnetSyntheticDataset"]
