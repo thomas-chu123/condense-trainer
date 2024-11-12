@@ -8,6 +8,7 @@ from transformers import (
 )
 from transformers import TextGenerationPipeline
 import os
+from huggingface_hub import HfApi
 
 
 class LitCondenseLLM(L.LightningModule):
@@ -49,6 +50,9 @@ class LitCondenseLLM(L.LightningModule):
         
         # Training state
         self.best_val_loss = float('inf')
+        self.best_checkpoints = []
+        self.hf_api = HfApi()
+        self.hf_save_repo = "Condense-AI/Condense-Mistral-7B-Instruct-v0.2"
 
     def _unfreeze_layers_and_norm(self, n_layers: int):
         # Freeze model
@@ -157,7 +161,13 @@ class LitCondenseLLM(L.LightningModule):
                 old_checkpoint = self.best_checkpoints.pop(0)
                 if os.path.exists(old_checkpoint):
                     os.remove(old_checkpoint)
-
+            # Push to HuggingFace Hub
+            self.hf_api.upload_file(
+                path_or_fileobj=checkpoint_path,
+                path_in_repo=checkpoint_path,
+                repo_id=self.hf_save_repo,
+            )
+            
     def configure_optimizers(self):
         param_to_optimize = [p for p in self.model.parameters() if p.requires_grad]
         optimizer = torch.optim.AdamW(
