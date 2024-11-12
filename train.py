@@ -9,7 +9,7 @@ num_condense_tokens = 512
 max_text_length = 4096
 
 dataset_id = "Condense-AI/benchmark-condense-v0.1"
-model_id = "mistralai/Mistral-7B-Instruct-v0.2"
+model_id = "Condense-AI/Mistral-7B-Instruct-v0.2"
 
 lit_model = LitCondenseLLM(model_id, num_condense_tokens=num_condense_tokens)
 
