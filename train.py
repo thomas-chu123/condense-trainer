@@ -47,7 +47,7 @@ trainer = Trainer(
     log_every_n_steps=5,
     check_val_every_n_epoch=1,
     logger=wandb_logger,
-    val_check_interval=1000,
+    val_check_interval=500,
     limit_val_batches=100,
 )
 
