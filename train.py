@@ -3,7 +3,7 @@ from lightning import Trainer
 from torch.utils.data import DataLoader
 from lightning.pytorch.loggers import WandbLogger
 import torch
-torch.set_float32_matmul_precision('medium')
+torch.autograd.set_detect_anomaly(True)
 wandb_logger = WandbLogger(project="Condense-Llama")
 
 num_condense_tokens = 512

@@ -43,7 +43,7 @@ class SubnetSyntheticDataset(Dataset):
             context,
             add_special_tokens=False,
             return_tensors="pt",
-            max_length=self.max_length,
+            max_length=self.max_length * 2,
             padding="max_length",
             truncation=True,
         )
