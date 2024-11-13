@@ -20,9 +20,9 @@ separate_tokenizer = lit_model.separate_tokenizer
 
 # Set padding token
 if tokenizer.pad_token is None:
-    tokenizer.pad_token = tokenizer.unk_token
+    tokenizer.pad_token = tokenizer.eos_token
 if separate_tokenizer.pad_token is None:
-    separate_tokenizer.pad_token = separate_tokenizer.unk_token
+    separate_tokenizer.pad_token = separate_tokenizer.eos_token
 
 train_dataset = SubnetSyntheticDataset(
     dataset_id, tokenizer, separate_tokenizer, num_condense_tokens, max_characters, max_length=max_tokens
