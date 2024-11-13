@@ -191,6 +191,9 @@ class LitCondenseLLM(L.LightningModule):
     def create_separate_decoder(self, model_name_or_pretrained_path, **kwargs):
         separate_decoder = AutoModelForCausalLM.from_pretrained(model_name_or_pretrained_path, torch_dtype=torch.bfloat16).to("cuda")
 
-        for param in separate_decoder.parameters():
+        for _, param in separate_decoder.named_parameters():
             param.requires_grad = False
+        # Enable gradient checkpointing to reduce memory usage during training
+        # Setting use_reentrant=False avoids potential issues with backward pass recomputation
+        separate_decoder.gradient_checkpointing_enable({"use_reentrant": False})
         return separate_decoder
