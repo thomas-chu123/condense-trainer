@@ -67,8 +67,8 @@ class LitCondenseLLM(L.LightningModule):
             if module.bias is not None:
                 module.bias.data.zero_()
 
-    def forward(self, prompt_embeds) -> torch.Tensor:
-        output = self.model(inputs_embeds=prompt_embeds, output_hidden_states=True)
+    def forward(self, prompt_embeds, attention_mask) -> torch.Tensor:
+        output = self.model(inputs_embeds=prompt_embeds, output_hidden_states=True, attention_mask=attention_mask)
         hidden_states = output.hidden_states[-self.n_last_hidden_states:]
         concated_hidden_states = torch.cat(hidden_states, dim=-1)
         concated_hidden_states = concated_hidden_states[
@@ -90,6 +90,7 @@ class LitCondenseLLM(L.LightningModule):
         context_ids = batch["context"]
         uncondensed_ids = batch["uncondensed"]
         n_batch = context_ids.shape[0]
+
         
         
         padding_labels = torch.full((n_batch, self.num_condense_tokens), -100, 
@@ -102,7 +103,9 @@ class LitCondenseLLM(L.LightningModule):
         
         inputs_embeds_condense = torch.cat([context_embeds, pre_condensed_embeds], dim=1)
         
-        condensed_tokens = self.forward(inputs_embeds_condense)
+        masks = (context_ids != self.tokenizer.pad_token_id).long()
+        
+        condensed_tokens = self.forward(inputs_embeds_condense, attention_mask=masks)
         
         uncondensed_embeds = self.separate_decoder.get_input_embeddings()(uncondensed_ids)
         

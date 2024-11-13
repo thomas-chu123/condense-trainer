@@ -58,6 +58,7 @@ class SubnetSyntheticDataset(Dataset):
             padding="max_length",
             truncation=True,
         )
+
         return {
             "context": context_ids.squeeze(0),
             "uncondensed": expected_completion_ids.squeeze(0),
