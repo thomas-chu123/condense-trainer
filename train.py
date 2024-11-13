@@ -3,16 +3,25 @@ from lightning import Trainer
 from torch.utils.data import DataLoader
 from lightning.pytorch.loggers import WandbLogger
 import torch
+import argparse
 torch.autograd.set_detect_anomaly(True)
 wandb_logger = WandbLogger(project="Condense")
+
+parser = argparse.ArgumentParser()
+parser.add_argument("--test", action="store_true")
+args = parser.parse_args()
 
 num_condense_tokens = 512
 max_tokens = 4096
 max_characters = 10000
 
 dataset_id = "Condense-AI/benchmark-condense-v0.1"
-model_id = "meta-llama/Llama-3.2-1B"
-separate_model_id = "Condense-AI/Mistral-7B-Instruct-v0.2"
+if args.test:
+    model_id = "meta-llama/Llama-3.2-1B"
+    separate_model_id = "meta-llama/Llama-3.2-1B"
+else:
+    model_id = "meta-llama/Llama-3.2-1B"
+    separate_model_id = "Condense-AI/Mistral-7B-Instruct-v0.2"
 lit_model = LitCondenseLLM(model_id, separate_model_id, num_condense_tokens=num_condense_tokens, max_seq_length=max_tokens)
 
 tokenizer = lit_model.tokenizer
