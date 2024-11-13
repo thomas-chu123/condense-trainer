@@ -140,15 +140,24 @@ class LitCondenseLLM(L.LightningModule):
         return loss
 
     def configure_optimizers(self):
-        lora_parameters = [p for p in self.model.parameters() if p.requires_grad]
-        norm_parameters = [p for p in self.model.parameters() if not p.requires_grad]
-        linear_parameters = [p for p in self.linear.parameters() if p.requires_grad]
-        pre_condensed_parameters = [p for p in self.pre_condensed_tokens if p.requires_grad]
+        # Define parameter groups with different learning rates
         group_lr = [
-            {"params": lora_parameters, "lr": 0.0001},
-            {"params": norm_parameters, "lr": 0.0001},
-            {"params": linear_parameters, "lr": 0.0001},
-            {"params": pre_condensed_parameters, "lr": 0.00001},
+            {
+                'params': self.pre_condensed_tokens,
+                'lr': 1e-5  # Higher learning rate for pre_condensed_tokens
+            },
+            {
+                'params': self.linear.parameters(),
+                'lr': 1e-4  # Lower learning rate for linear layer
+            },
+            {
+                'params': self.norm.parameters(), 
+                'lr': 1e-4  # Lower learning rate for norm layer
+            },
+            {
+                'params': self.model.parameters(),
+                'lr': 1e-4  # Lower learning rate for base model
+            }
         ]
         optimizer = torch.optim.AdamW(
             group_lr, weight_decay=1e-5
