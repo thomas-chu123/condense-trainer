@@ -11,6 +11,7 @@ import os
 from huggingface_hub import HfApi
 from unsloth import FastLanguageModel
 from unsloth import is_bfloat16_supported
+from peft import PeftModel
 
 
 class LitCondenseLLM(L.LightningModule):
@@ -30,7 +31,7 @@ class LitCondenseLLM(L.LightningModule):
             load_in_4bit=True,
         )
 
-        model = FastLanguageModel.get_peft_model(
+        model: PeftModel = FastLanguageModel.get_peft_model(
             model,
             r=129,
             target_modules=[
@@ -61,15 +62,10 @@ class LitCondenseLLM(L.LightningModule):
         self.hidden_size = self.model.config.hidden_size
 
         # Unfreeze specific layers
-        self._unfreeze_layers_and_norm(n_layers=1)
+        # self._unfreeze_layers_and_norm(n_layers=1)
 
         # Create decoder and pipeline
         self.create_separate_decoder(model_id)
-        self.pipeline = TextGenerationPipeline(
-            model=self.separate_decoder,
-            tokenizer=self.tokenizer,
-            device="cuda",
-        )
 
         # Initialize learnable parameters
         self.pre_condensed_tokens = nn.Parameter(
@@ -174,7 +170,6 @@ class LitCondenseLLM(L.LightningModule):
                 self.best_val_loss = val_loss
                 # Save only the main model state dict
                 checkpoint = {
-                    "model_state_dict": self.model.state_dict(),
                     "pre_condensed_tokens": self.pre_condensed_tokens,
                     "linear_state_dict": self.linear.state_dict(),
                     "val_loss": val_loss,
@@ -186,6 +181,7 @@ class LitCondenseLLM(L.LightningModule):
 
                 checkpoint_path = f"best_model_val_loss_{val_loss:.4f}.pt"
                 torch.save(checkpoint, checkpoint_path)
+                self.model.save_pretrained("peft_" + checkpoint_path)
 
                 # Add new checkpoint path and remove old if more than 2
                 self.best_checkpoints.append(checkpoint_path)
@@ -194,13 +190,20 @@ class LitCondenseLLM(L.LightningModule):
                     old_checkpoint = self.best_checkpoints.pop(0)
                     if os.path.exists(old_checkpoint):
                         os.remove(old_checkpoint)
+                        os.remove("peft_" + old_checkpoint)
                 # Push to HuggingFace Hub
                 self.hf_api.create_repo(
-                    repo_id=self.hf_save_repo, repo_type="model", exist_ok=True
+                    repo_id=self.hf_save_repo, repo_type="model", exist_ok=True,
                 )
                 self.hf_api.upload_file(
                     path_or_fileobj=checkpoint_path,
                     path_in_repo=checkpoint_path,
+                    repo_id=self.hf_save_repo,
+                    run_as_future=True,
+                )
+                self.hf_api.upload_file(
+                    path_or_fileobj="peft_" + checkpoint_path,
+                    path_in_repo="peft_" + checkpoint_path,
                     repo_id=self.hf_save_repo,
                     run_as_future=True,
                 )
