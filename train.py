@@ -40,7 +40,6 @@ trainer = Trainer(
     logger=wandb_logger,
     val_check_interval=1000,
     limit_val_batches=100,
-    enable_checkpointing=True,
 )
 
 train_loader = DataLoader(train_dataset, batch_size=1, shuffle=True, num_workers=8)

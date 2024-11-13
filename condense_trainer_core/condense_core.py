@@ -36,6 +36,7 @@ class LitCondenseLLM(L.LightningModule):
             target_modules=["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"],
         ))
         self.model.print_trainable_parameters()
+        self.model.gradient_checkpointing_enable()
         self.tokenizer = AutoTokenizer.from_pretrained(model_id)
         self.num_condense_tokens = num_condense_tokens
         self.n_last_hidden_states = n_last_hidden_states
