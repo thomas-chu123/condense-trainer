@@ -4,14 +4,14 @@ from torch.utils.data import DataLoader
 from lightning.pytorch.loggers import WandbLogger
 import torch
 torch.autograd.set_detect_anomaly(True)
-wandb_logger = WandbLogger(project="Condense-Llama")
+wandb_logger = WandbLogger(project="Condense")
 
 num_condense_tokens = 512
 max_tokens = 4096
 max_characters = 10000
 
 dataset_id = "Condense-AI/benchmark-condense-v0.1"
-model_id = "Condense-AI/Mistral-7B-Instruct-v0.2"
+model_id = "unsloth/Llama-3.2-1B-Instruct-bnb-4bit"
 
 lit_model = LitCondenseLLM(model_id, num_condense_tokens=num_condense_tokens, max_seq_length=max_tokens)
 
