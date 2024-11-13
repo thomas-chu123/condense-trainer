@@ -33,13 +33,14 @@ class LitCondenseLLM(L.LightningModule):
 
         self.num_condense_tokens = num_condense_tokens
         self.hidden_size = self.model.config.hidden_size
+        self.base_model_hidden_size = self.separate_decoder.config.hidden_size
         self.create_separate_decoder(model_id)
 
         # Initialize learnable parameters
         self.pre_condensed_tokens = nn.Parameter(
             torch.randn(1, self.num_condense_tokens, self.hidden_size)
         )
-        self.linear = nn.Linear(self.hidden_size * 2, self.hidden_size, bias=True)
+        self.linear = nn.Linear(self.hidden_size * 2, self.base_model_hidden_size, bias=True)
 
         self.best_val_loss = float("inf")
         self.best_checkpoints = []
