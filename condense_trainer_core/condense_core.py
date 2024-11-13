@@ -9,7 +9,6 @@ from transformers import (
 from huggingface_hub import HfApi
 from peft import get_peft_model, LoraConfig
 import os
-import wandb
 import traceback
 class LitCondenseLLM(L.LightningModule):
     def __init__(
@@ -103,8 +102,8 @@ class LitCondenseLLM(L.LightningModule):
         pre_condensed_embeds = self.pre_condensed_tokens.repeat(n_batch, 1, 1)
         
         inputs_embeds_condense = torch.cat([context_embeds, pre_condensed_embeds], dim=1)
+        context_mask = torch.cat((context_mask, torch.ones((n_batch, self.num_condense_tokens), device=context_ids.device)), dim=1)
         
-        print(context_mask.shape)
         condensed_tokens = self.forward(inputs_embeds_condense, attention_mask=context_mask)
         
         uncondensed_embeds = self.separate_decoder.get_input_embeddings()(uncondensed_ids)
