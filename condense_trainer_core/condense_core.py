@@ -115,8 +115,10 @@ class LitCondenseLLM(L.LightningModule):
         # Convert padding tokens to -100
         labels[labels == pad_token_id] = -100
         labels = labels.long()
-        print(labels[:,:1024])
+        print(torch.unique(labels))
+        print(labels.shape)
         loss = F.cross_entropy(logits, labels, ignore_index=-100)
+        print(loss)
         return loss
 
     def _process_batch(self, batch):
