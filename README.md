@@ -1,68 +1,93 @@
-# Condense LLM Trainer
+# Condense For LLM - Trainer
 
-A PyTorch Lightning implementation for training condensed token representations in Large Language Models (LLMs), specifically designed for Mistral-7B.
+A PyTorch Lightning framework for training condensed token representations in Large Language Models (LLMs). This project enables efficient context compression while maintaining semantic meaning.
 
-## Overview
+## 🚀 Key Features
 
-This project implements a training framework for condensing long context windows into a smaller set of learned tokens while preserving the semantic meaning. It uses a two-stage architecture where:
+- **Token Condensation**: Compress long contexts into learned token representations
+- **Model Agnostic**: Compatible with any Transformer-based LLM
+- **Efficient Training**: Uses LoRA and gradient checkpointing for memory efficiency
+- **Automatic Validation**: Checkpoints best models based on validation performance
+- **Wandb Integration**: Built-in logging and experiment tracking
 
-1. Input text is processed through a condensation layer
-2. Condensed tokens are used for downstream task completion
-
-## Installation
+## 📦 Installation
 
 ```bash
 pip install -r requirements.txt
 ```
 
-## Usage
+## 🛠️ Usage
 
 ### Training
 
-To start training:
+Start training with default configuration:
 
 ```bash
 python train.py
 ```
 
-The default configuration uses:
-- Mistral-7B-Instruct-v0.2 as the base model
-- 512 condense tokens
-- Maximum text length of 4096 tokens
-- BF16 precision training
-- AdamW optimizer with learning rate 1e-4
+For testing with a smaller model:
 
-### Model Architecture
+```bash
+python train.py --test
+```
 
-The `LitCondenseLLM` class implements the core condensation architecture with:
+### Default Configuration
 
-- Learnable condensation tokens
-- Linear projection layer for hidden states
-- Layer normalization
-- Separate frozen decoder for generation
-- Selective layer unfreezing for efficient training
+- Base Model: Llama-3.2-1B
+- Decoder Model: Mistral-7B-Instruct-v0.2
+- Condense Tokens: 512
+- Max Input Length: 4096 tokens
+- Training Precision: BF16
+- Optimizer: AdamW with grouped learning rates
 
-## Key Components
+## 🏗️ Architecture
 
-- **Condensation Module**: Learns to compress input context into a fixed number of tokens
-- **Training Pipeline**: Uses PyTorch Lightning for structured training
-- **Dataset**: Custom `SubnetSyntheticDataset` for handling training data
-- **Validation**: Automatic model checkpointing based on validation loss
+The system consists of three main components:
 
-## Configuration
+1. **Condensation Module**
+   - Learnable token embeddings
+   - Linear projection layer
+   - Layer normalization
+   - LoRA fine-tuning
 
-Key hyperparameters can be modified in `train.py`:
+2. **Frozen Decoder**
+   - Separate decoder model
+   - Zero-shot inference capability
+   - Gradient checkpointing enabled
+
+3. **Training Pipeline**
+   - PyTorch Lightning based
+   - Automatic model checkpointing
+   - WandB logging integration
+   - Multi-worker data loading
+
+## 📊 Dataset
+
+Uses the `SubnetSyntheticDataset` class which:
+- Loads from Hugging Face datasets
+- Handles tokenization for both models
+- Supports train/test splitting
+- Implements dynamic padding
+
+## ⚙️ Configuration
+
+Key parameters in `train.py`:
 
 ```python
 num_condense_tokens = 512
-max_text_length = 4096
-model_id = "mistralai/Mistral-7B-Instruct-v0.2"
+max_tokens = 4096
+max_characters = 10000
 ```
 
-## Model Checkpoints
+## 🔄 Model Checkpoints
 
-The trainer automatically saves model checkpoints when validation loss improves. Checkpoints include:
-- Model state dict
-- Pre-condensed tokens
-- Linear layer weights
-- Validation loss score
+Checkpoints are automatically saved to Hugging Face Hub and include:
+- Pre-condensed token embeddings
+- Linear projection weights
+- Layer normalization parameters
+- LoRA weights
+
+## 📝 License
+
+MIT License
