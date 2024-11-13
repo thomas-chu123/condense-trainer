@@ -9,6 +9,7 @@ from transformers import (
 from huggingface_hub import HfApi
 from peft import get_peft_model, LoraConfig
 import os
+import wandb
 
 class LitCondenseLLM(L.LightningModule):
     def __init__(
@@ -115,6 +116,9 @@ class LitCondenseLLM(L.LightningModule):
         loss = self.loss_fn(logits, labels)
         self.log("train_loss", loss, on_step=True, on_epoch=True, prog_bar=True)
         return loss
+    
+    def on_validation_start(self):
+        self.wandb_table = wandb.Table(columns=["context", "generated_text"])
 
     def validation_step(self, batch):
         inputs_embeds, labels = self._process_batch(batch)
@@ -133,41 +137,15 @@ class LitCondenseLLM(L.LightningModule):
             )
             generated_text = self.separate_tokenizer.batch_decode(generated_ids, skip_special_tokens=True)
             # Log a sample of generated text
-            if self.global_step % 100 == 0:  # Log every 100 steps
-                self.log("generated_sample", generated_text[0], on_step=True)
+            self.wandb_table.add_data(batch["context"][0], generated_text[0])
         
         self.log("val_loss", loss, on_step=False, on_epoch=True, prog_bar=True)
         return loss
 
-    def configure_optimizers(self):
-        # Define parameter groups with different learning rates
-        group_lr = [
-            {
-                'params': self.pre_condensed_tokens,
-                'lr': 1e-5  # Higher learning rate for pre_condensed_tokens
-            },
-            {
-                'params': self.linear.parameters(),
-                'lr': 1e-4  # Lower learning rate for linear layer
-            },
-            {
-                'params': self.norm.parameters(), 
-                'lr': 1e-4  # Lower learning rate for norm layer
-            },
-            {
-                'params': self.model.parameters(),
-                'lr': 1e-4  # Lower learning rate for base model
-            }
-        ]
-        optimizer = torch.optim.AdamW(
-            group_lr, weight_decay=1e-5
-        )
-        return {
-            "optimizer": optimizer,
-        }
     
     def on_validation_epoch_end(self):
         try:
+            wandb.log({"generated_samples": self.wandb_table})
             val_loss = self.trainer.callback_metrics["val_loss"]
             if val_loss < self.best_val_loss:
                 self.best_val_loss = val_loss
@@ -197,6 +175,33 @@ class LitCondenseLLM(L.LightningModule):
         except Exception as e:
             print(f"Error in on_validation_epoch_end: {e}")
 
+    def configure_optimizers(self):
+        # Define parameter groups with different learning rates
+        group_lr = [
+            {
+                'params': self.pre_condensed_tokens,
+                'lr': 1e-5  # Higher learning rate for pre_condensed_tokens
+            },
+            {
+                'params': self.linear.parameters(),
+                'lr': 1e-4  # Lower learning rate for linear layer
+            },
+            {
+                'params': self.norm.parameters(), 
+                'lr': 1e-4  # Lower learning rate for norm layer
+            },
+            {
+                'params': self.model.parameters(),
+                'lr': 1e-4  # Lower learning rate for base model
+            }
+        ]
+        optimizer = torch.optim.AdamW(
+            group_lr, weight_decay=1e-5
+        )
+        return {
+            "optimizer": optimizer,
+        }
+    
     def create_separate_decoder(self, model_name_or_pretrained_path, **kwargs):
         separate_decoder = AutoModelForCausalLM.from_pretrained(model_name_or_pretrained_path, torch_dtype=torch.bfloat16).to("cuda")
 
