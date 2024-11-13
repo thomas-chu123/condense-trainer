@@ -89,6 +89,7 @@ class LitCondenseLLM(L.LightningModule):
     def _process_batch(self, batch):
         context_ids = batch["context"]
         uncondensed_ids = batch["uncondensed"]
+        context_mask = batch["context_mask"]
         n_batch = context_ids.shape[0]
 
         
@@ -103,9 +104,8 @@ class LitCondenseLLM(L.LightningModule):
         
         inputs_embeds_condense = torch.cat([context_embeds, pre_condensed_embeds], dim=1)
         
-        masks = (context_ids != self.tokenizer.pad_token_id).long()
-        
-        condensed_tokens = self.forward(inputs_embeds_condense, attention_mask=masks)
+        print(context_mask.shape)
+        condensed_tokens = self.forward(inputs_embeds_condense, attention_mask=context_mask)
         
         uncondensed_embeds = self.separate_decoder.get_input_embeddings()(uncondensed_ids)
         

@@ -41,14 +41,17 @@ class SubnetSyntheticDataset(Dataset):
         context = item["context"]
         activation_prompt = item["activation_prompt"]
         expected_completion = item["expected_completion"]
-        context_ids = self.tokenizer.encode(
+        output = self.tokenizer(
             context,
             add_special_tokens=False,
             return_tensors="pt",
             max_length=self.max_length,
             padding="max_length",
             truncation=True,
+            return_attention_mask=True,
         )
+        context_ids = output.input_ids
+        context_mask = output.attention_mask
         full_completion = activation_prompt + expected_completion
         expected_completion_ids = self.separate_tokenizer.encode(
             full_completion,
@@ -61,6 +64,7 @@ class SubnetSyntheticDataset(Dataset):
 
         return {
             "context": context_ids.squeeze(0),
+            "context_mask": context_mask.squeeze(0),
             "uncondensed": expected_completion_ids.squeeze(0),
             "str_context": context,
             "str_uncondensed": full_completion,
