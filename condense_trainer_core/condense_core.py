@@ -35,7 +35,6 @@ class LitCondenseLLM(L.LightningModule):
         self.hidden_size = self.model.config.hidden_size
         self.create_separate_decoder(model_id)
         self.base_model_hidden_size = self.separate_decoder.config.hidden_size
-        self.original_tokens = torch.clone(self.separate_decoder.get_input_embeddings())
         # Initialize learnable parameters
         self.pre_condensed_tokens = nn.Parameter(
             torch.randn(1, self.num_condense_tokens, self.hidden_size)
@@ -79,7 +78,7 @@ class LitCondenseLLM(L.LightningModule):
         pre_condensed_embeds = self.pre_condensed_tokens.repeat(n_batch, 1, 1)
         inputs_embeds_condense = torch.cat([context_embeds, pre_condensed_embeds], dim=1)
         condensed_tokens = self.forward(inputs_embeds_condense)
-        uncondensed_embeds = self.original_tokens(uncondensed_ids)
+        uncondensed_embeds = self.separate_decoder.get_input_embeddings()(uncondensed_ids)
         inputs_embeds = torch.cat([condensed_tokens, uncondensed_embeds], dim=1)
         return inputs_embeds, labels
 
