@@ -7,7 +7,8 @@ torch.set_float32_matmul_precision('medium')
 wandb_logger = WandbLogger(project="Condense-Llama")
 
 num_condense_tokens = 512
-max_text_length = 4096
+max_tokens = 4096
+max_characters = 10000
 
 dataset_id = "Condense-AI/benchmark-condense-v0.1"
 model_id = "Condense-AI/Mistral-7B-Instruct-v0.2"
@@ -21,10 +22,10 @@ if tokenizer.pad_token is None:
     tokenizer.pad_token = tokenizer.eos_token
 
 train_dataset = SubnetSyntheticDataset(
-    dataset_id, tokenizer, num_condense_tokens, max_text_length, split="train"
+    dataset_id, tokenizer, num_condense_tokens, max_characters, max_length=max_tokens
 )
 validation_dataset = SubnetSyntheticDataset(
-    dataset_id, tokenizer, num_condense_tokens, max_text_length, split="test"
+    dataset_id, tokenizer, num_condense_tokens, max_characters, max_length=max_tokens, split="test"
 )
 
 trainer = Trainer(
