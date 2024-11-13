@@ -119,7 +119,7 @@ class LitCondenseLLM(L.LightningModule):
         return loss
     
     def on_validation_start(self):
-        self.wandb_table = wandb.Table(columns=["context", "generated_text"])
+        self.text_samples = []
 
     def validation_step(self, batch):
         inputs_embeds, labels = self._process_batch(batch)
@@ -138,7 +138,7 @@ class LitCondenseLLM(L.LightningModule):
             )
             generated_text = self.separate_tokenizer.batch_decode(generated_ids, skip_special_tokens=True)
             # Log a sample of generated text
-            self.wandb_table.add_data(batch["context"][0], generated_text[0])
+            self.text_samples.append([batch["context"][0], generated_text[0]])
         
         self.log("val_loss", loss, on_step=False, on_epoch=True, prog_bar=True)
         return loss
@@ -146,7 +146,7 @@ class LitCondenseLLM(L.LightningModule):
     
     def on_validation_epoch_end(self):
         try:
-            wandb.log({"generated_samples": self.wandb_table})
+            self.logger.log_table("generated_samples", columns=["context", "generated_text"], data=self.text_samples)
             val_loss = self.trainer.callback_metrics["val_loss"]
             if val_loss < self.best_val_loss:
                 self.best_val_loss = val_loss
