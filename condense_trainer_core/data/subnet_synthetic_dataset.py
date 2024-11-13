@@ -43,30 +43,20 @@ class SubnetSyntheticDataset(Dataset):
             context,
             add_special_tokens=False,
             return_tensors="pt",
-            max_length=self.max_length * 2,
+            max_length=self.max_length,
             padding="max_length",
             truncation=True,
         )
+        full_completion = activation_prompt + expected_completion
         expected_completion_ids = self.tokenizer.encode(
-            expected_completion,
+            full_completion,
             add_special_tokens=False,
             return_tensors="pt",
             max_length=self.max_length,
             padding="max_length",
             truncation=True,
-        )
-        activation_prompt_ids = self.tokenizer.encode(
-            activation_prompt,
-            add_special_tokens=False,
-            return_tensors="pt",
-            max_length=self.max_length,
-            padding="max_length",
-            truncation=True,
-        )
-        uncondensed_ids = torch.concatenate(
-            (activation_prompt_ids, expected_completion_ids), dim=1
         )
         return {
             "context": context_ids.squeeze(0),
-            "uncondensed": uncondensed_ids.squeeze(0),
+            "uncondensed": expected_completion_ids.squeeze(0),
         }
