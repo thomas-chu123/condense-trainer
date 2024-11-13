@@ -115,7 +115,7 @@ class LitCondenseLLM(L.LightningModule):
         # Convert padding tokens to -100
         labels[labels == pad_token_id] = -100
         labels = labels.long()
-        print(labels)
+        print(labels[:,:1024])
         loss = F.cross_entropy(logits, labels, ignore_index=-100)
         return loss
 
@@ -166,6 +166,8 @@ class LitCondenseLLM(L.LightningModule):
         output = self.separate_decoder(inputs_embeds=inputs_embeds)
         logits = output.logits
         print(logits.shape, labels.shape)
+        print(logits)
+        print(labels)
         loss = self.loss_fn(logits, labels)
         print(loss)
         self.log("val_loss", loss, on_step=False, on_epoch=True, prog_bar=True)
