@@ -146,7 +146,6 @@ class LitCondenseLLM(L.LightningModule):
     
     def on_validation_epoch_end(self):
         try:
-            self.logger.log_table("generated_samples", columns=["context", "generated_text"], data=self.text_samples)
             val_loss = self.trainer.callback_metrics["val_loss"]
             if val_loss < self.best_val_loss:
                 self.best_val_loss = val_loss
@@ -176,6 +175,9 @@ class LitCondenseLLM(L.LightningModule):
         except Exception as e:
             traceback.print_exc()
             print(f"Error in on_validation_epoch_end: {e}")
+    
+    def on_validation_end(self):
+        self.logger.log_table("generated_samples", columns=["context", "generated_text"], data=self.text_samples)
 
     def configure_optimizers(self):
         # Define parameter groups with different learning rates
