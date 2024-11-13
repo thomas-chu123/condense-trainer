@@ -138,7 +138,7 @@ class LitCondenseLLM(L.LightningModule):
             )
             generated_text = self.separate_tokenizer.batch_decode(generated_ids, skip_special_tokens=True)
             # Log a sample of generated text
-            self.text_samples.append([batch["context"][0], generated_text[0]])
+            self.text_samples.append([batch["str_context"][0], generated_text[0], batch["str_uncondensed"][0]])
         
         self.log("val_loss", loss, on_step=False, on_epoch=True, prog_bar=True)
         return loss
@@ -177,7 +177,7 @@ class LitCondenseLLM(L.LightningModule):
             print(f"Error in on_validation_epoch_end: {e}")
     
     def on_validation_end(self):
-        self.logger.log_table("generated_samples", columns=["context", "generated_text"], data=self.text_samples)
+        self.logger.log_table("generated_samples", columns=["context", "generated_text", "uncondensed"], data=self.text_samples)
 
     def configure_optimizers(self):
         # Define parameter groups with different learning rates

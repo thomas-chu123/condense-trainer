@@ -61,4 +61,6 @@ class SubnetSyntheticDataset(Dataset):
         return {
             "context": context_ids.squeeze(0),
             "uncondensed": expected_completion_ids.squeeze(0),
+            "str_context": context,
+            "str_uncondensed": full_completion,
         }
