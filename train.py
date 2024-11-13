@@ -17,8 +17,8 @@ max_characters = 10000
 
 dataset_id = "Condense-AI/benchmark-condense-v0.1"
 if args.test:
-    model_id = "meta-llama/Llama-3.2-1B"
-    separate_model_id = "meta-llama/Llama-3.2-1B"
+    model_id = "HuggingFaceTB/SmolLM2-135M"
+    separate_model_id = "HuggingFaceTB/SmolLM2-135M"
 else:
     model_id = "meta-llama/Llama-3.2-1B"
     separate_model_id = "Condense-AI/Mistral-7B-Instruct-v0.2"
