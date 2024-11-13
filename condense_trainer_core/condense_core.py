@@ -4,16 +4,11 @@ import torch.nn.functional as F
 import torch.nn as nn
 from transformers import (
     AutoTokenizer,
-    MistralForCausalLM,
     AutoModelForCausalLM,
 )
-from transformers import TextGenerationPipeline
-import os
 from huggingface_hub import HfApi
-from unsloth import FastLanguageModel
-from unsloth import is_bfloat16_supported
-import unsloth
-from peft import PeftModel
+from peft import get_peft_model, LoraConfig
+import os
 
 class LitCondenseLLM(L.LightningModule):
     def __init__(
@@ -24,38 +19,16 @@ class LitCondenseLLM(L.LightningModule):
     ):
         super().__init__()
         self.max_seq_length = max_seq_length
-        # model, tokenizer = FastLanguageModel.from_pretrained(
-        #     model_name=model_id,
-        #     max_seq_length=max_seq_length,
-        #     dtype=None,
-        #     load_in_4bit=False,
-        #     fix_tokenizer=True
-        # )
-
-        # model: PeftModel = FastLanguageModel.get_peft_model(
-        #     model,
-        #     r=128,
-        #     target_modules=[
-        #         "q_proj",
-        #         "k_proj",
-        #         "v_proj",
-        #         "o_proj",
-        #         "gate_proj",
-        #         "up_proj",
-        #         "down_proj",
-        #     ],
-        #     lora_alpha=128,
-        #     lora_dropout=0,
-        #     bias="none",
-        #     use_gradient_checkpointing="unsloth",
-        #     random_state=3407,
-        #     max_seq_length=max_seq_length,
-        #     use_rslora=False,
-        #     loftq_config=None,
-        # )
-        # self.model = model
-        # self.tokenizer = tokenizer
-        self.model = AutoModelForCausalLM.from_pretrained(model_id, torch_dtype=torch.bfloat16)
+        self.model = AutoModelForCausalLM.from_pretrained("unsloth/Llama-3.2-1B", torch_dtype=torch.bfloat16)
+        self.model = get_peft_model(self.model, peft_config=LoraConfig(
+            task_type="CAUSAL_LM",
+            r=128,
+            lora_alpha=128,
+            lora_dropout=0,
+            bias="none",
+            target_modules=["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"],
+        ))
+        self.model.print_trainable_parameters()
         self.tokenizer = AutoTokenizer.from_pretrained(model_id)
 
         self.num_condense_tokens = num_condense_tokens
@@ -76,7 +49,7 @@ class LitCondenseLLM(L.LightningModule):
     def forward(self, prompt_embeds) -> torch.Tensor:
         output = self.model(inputs_embeds=prompt_embeds, output_hidden_states=True)
         hidden_states = output.hidden_states[-2:]
-        concated_hidden_states = torch.cat(hidden_states, dim=-1).clone()
+        concated_hidden_states = torch.cat(hidden_states, dim=-1)
         concated_hidden_states = concated_hidden_states[
             :, -self.num_condense_tokens :, :
         ]
@@ -87,7 +60,6 @@ class LitCondenseLLM(L.LightningModule):
         logits = logits[:, :-1, :].contiguous().view(-1, logits.size(-1))
         labels = labels[:, 1:].contiguous().view(-1)
         pad_token_id = self.tokenizer.pad_token_id
-        labels = labels.clone()
         labels[labels == pad_token_id] = -100
         labels = labels.long()
         loss = F.cross_entropy(logits, labels, ignore_index=-100)
@@ -100,16 +72,14 @@ class LitCondenseLLM(L.LightningModule):
         
         padding_labels = torch.full((n_batch, self.num_condense_tokens), -100, 
                                     device=context_ids.device)
-        labels = torch.cat((padding_labels, uncondensed_ids), dim=1).clone()
+        labels = torch.cat((padding_labels, uncondensed_ids), dim=1)
 
-        context_embeds = self.model.get_input_embeddings()(context_ids).clone()
+        context_embeds = self.model.get_input_embeddings()(context_ids)
         pre_condensed_embeds = self.pre_condensed_tokens.repeat(n_batch, 1, 1)
-        inputs_embeds_condense = torch.cat([context_embeds, pre_condensed_embeds], dim=1).clone()
-        print(inputs_embeds_condense.shape)
+        inputs_embeds_condense = torch.cat([context_embeds, pre_condensed_embeds], dim=1)
         condensed_tokens = self.forward(inputs_embeds_condense)
-        uncondensed_embeds = self.model.get_input_embeddings()(uncondensed_ids).clone()
-        inputs_embeds = torch.cat([condensed_tokens, uncondensed_embeds], dim=1).clone()
-        print(inputs_embeds.shape)
+        uncondensed_embeds = self.model.get_input_embeddings()(uncondensed_ids)
+        inputs_embeds = torch.cat([condensed_tokens, uncondensed_embeds], dim=1)
         return inputs_embeds, labels
 
     def training_step(self, batch):
@@ -131,20 +101,61 @@ class LitCondenseLLM(L.LightningModule):
     def configure_optimizers(self):
         param_to_optimize = [p for p in self.model.parameters() if p.requires_grad]
         optimizer = torch.optim.AdamW(
-            param_to_optimize, lr=0.0002, weight_decay=0.0, betas=(0.9, 0.95)
+            param_to_optimize, lr=0.0001, weight_decay=1e-5
         )
         return {
             "optimizer": optimizer,
         }
+    
+    def on_validation_epoch_end(self):
+        try:
+            val_loss = self.trainer.callback_metrics["val_loss"]
+            if val_loss < self.best_val_loss:
+                self.best_val_loss = val_loss
+                # Save only the main model state dict
+                checkpoint = {
+                    "pre_condensed_tokens": self.pre_condensed_tokens,
+                    "linear_state_dict": self.linear.state_dict(),
+                    "val_loss": val_loss,
+                }
+
+                # Keep track of last 2 best checkpoints
+                if not hasattr(self, "best_checkpoints"):
+                    self.best_checkpoints = []
+
+                checkpoint_path = f"best_model_val_loss_{val_loss:.4f}.pt"
+                torch.save(checkpoint, checkpoint_path)
+                self.model.save_pretrained("peft_" + checkpoint_path)
+
+                # Add new checkpoint path and remove old if more than 2
+                self.best_checkpoints.append(checkpoint_path)
+                if len(self.best_checkpoints) > 1:
+                    # Remove oldest checkpoint file
+                    old_checkpoint = self.best_checkpoints.pop(0)
+                    if os.path.exists(old_checkpoint):
+                        os.remove(old_checkpoint)
+                        os.remove("peft_" + old_checkpoint)
+                # Push to HuggingFace Hub
+                self.hf_api.create_repo(
+                    repo_id=self.hf_save_repo, repo_type="model", exist_ok=True,
+                )
+                self.hf_api.upload_file(
+                    path_or_fileobj=checkpoint_path,
+                    path_in_repo=checkpoint_path,
+                    repo_id=self.hf_save_repo,
+                    run_as_future=True,
+                )
+                self.hf_api.upload_file(
+                    path_or_fileobj="peft_" + checkpoint_path,
+                    path_in_repo="peft_" + checkpoint_path,
+                    repo_id=self.hf_save_repo,
+                    run_as_future=True,
+                )
+        except Exception as e:
+            print(f"Error in on_validation_epoch_end: {e}")
 
     def create_separate_decoder(self, model_name_or_pretrained_path, **kwargs):
-        # self.separate_decoder, _ = FastLanguageModel.from_pretrained(
-        #     model_name_or_pretrained_path,
-        #     max_seq_length=self.max_seq_length,
-        #     dtype=None,
-        #     load_in_4bit=False,
-        # )
-        self.separate_decoder = AutoModelForCausalLM.from_pretrained(model_name_or_pretrained_path, torch_dtype=torch.bfloat16)
+        self.separate_decoder = AutoModelForCausalLM.from_pretrained("Condense-AI/Mistral-7B-Instruct-v0.2", torch_dtype=torch.bfloat16)
 
         for param in self.separate_decoder.parameters():
             param.requires_grad = False
