@@ -27,7 +27,7 @@ class LitCondenseLLM(L.LightningModule):
             model_name=model_id,
             max_seq_length=max_seq_length,
             dtype=None,
-            load_in_4bit=True,
+            load_in_4bit=False,
             fix_tokenizer=True
         )
 
@@ -142,7 +142,7 @@ class LitCondenseLLM(L.LightningModule):
             model_name_or_pretrained_path,
             max_seq_length=self.max_seq_length,
             dtype=None,
-            load_in_4bit=True,
+            load_in_4bit=False,
         )
 
         for param in self.separate_decoder.parameters():
