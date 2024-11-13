@@ -16,10 +16,11 @@ class LitCondenseLLM(L.LightningModule):
         model_id: str,
         num_condense_tokens: int = 386,
         max_seq_length: int = 4096,
+        n_last_hidden_states: int = 2,
     ):
         super().__init__()
         self.max_seq_length = max_seq_length
-        self.model = AutoModelForCausalLM.from_pretrained(model_id, torch_dtype=torch.bfloat16)
+        self.model = AutoModelForCausalLM.from_pretrained(model_id, torch_dtype=torch.bfloat16).to("cuda")
         self.model = get_peft_model(self.model, peft_config=LoraConfig(
             task_type="CAUSAL_LM",
             r=128,
@@ -32,14 +33,16 @@ class LitCondenseLLM(L.LightningModule):
         self.tokenizer = AutoTokenizer.from_pretrained(model_id)
 
         self.num_condense_tokens = num_condense_tokens
+        self.n_last_hidden_states = n_last_hidden_states
         self.hidden_size = self.model.config.hidden_size
         self.create_separate_decoder(model_id)
         self.base_model_hidden_size = self.separate_decoder.config.hidden_size
         # Initialize learnable parameters
+        self.norm = nn.LayerNorm(self.hidden_size * self.n_last_hidden_states)
         self.pre_condensed_tokens = nn.Parameter(
             torch.randn(1, self.num_condense_tokens, self.hidden_size)
         )
-        self.linear = nn.Linear(self.hidden_size * 2, self.base_model_hidden_size, bias=True)
+        self.linear = nn.Linear(self.hidden_size * self.n_last_hidden_states, self.base_model_hidden_size, bias=True)
 
         self.best_val_loss = float("inf")
         self.best_checkpoints = []
@@ -48,12 +51,12 @@ class LitCondenseLLM(L.LightningModule):
 
     def forward(self, prompt_embeds) -> torch.Tensor:
         output = self.model(inputs_embeds=prompt_embeds, output_hidden_states=True)
-        hidden_states = output.hidden_states[-2:]
+        hidden_states = output.hidden_states[-self.n_last_hidden_states:]
         concated_hidden_states = torch.cat(hidden_states, dim=-1)
         concated_hidden_states = concated_hidden_states[
             :, -self.num_condense_tokens :, :
         ]
-        condensed_tokens = self.linear(concated_hidden_states)
+        condensed_tokens = self.linear(self.norm(concated_hidden_states))
         return condensed_tokens
 
     def loss_fn(self, logits, labels):
@@ -123,6 +126,7 @@ class LitCondenseLLM(L.LightningModule):
                 checkpoint = {
                     "pre_condensed_tokens": self.pre_condensed_tokens,
                     "linear_state_dict": self.linear.state_dict(),
+                    "norm_state_dict": self.norm.state_dict(),
                     "val_loss": val_loss,
                 }
 
@@ -162,7 +166,7 @@ class LitCondenseLLM(L.LightningModule):
             print(f"Error in on_validation_epoch_end: {e}")
 
     def create_separate_decoder(self, model_name_or_pretrained_path, **kwargs):
-        self.separate_decoder = AutoModelForCausalLM.from_pretrained(model_name_or_pretrained_path, torch_dtype=torch.bfloat16)
+        self.separate_decoder = AutoModelForCausalLM.from_pretrained(model_name_or_pretrained_path, torch_dtype=torch.bfloat16).to("cuda")
 
         for param in self.separate_decoder.parameters():
             param.requires_grad = False
