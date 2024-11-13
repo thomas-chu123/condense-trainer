@@ -12,7 +12,7 @@ This project implements a training framework for condensing long context windows
 ## Installation
 
 ```bash
-pip install torch lightning transformers datasets
+pip install -r requirements.txt
 ```
 
 ## Usage
@@ -30,7 +30,7 @@ The default configuration uses:
 - 512 condense tokens
 - Maximum text length of 4096 tokens
 - BF16 precision training
-- AdamW optimizer with learning rate 2e-4
+- AdamW optimizer with learning rate 1e-4
 
 ### Model Architecture
 
@@ -38,6 +38,7 @@ The `LitCondenseLLM` class implements the core condensation architecture with:
 
 - Learnable condensation tokens
 - Linear projection layer for hidden states
+- Layer normalization
 - Separate frozen decoder for generation
 - Selective layer unfreezing for efficient training
 
@@ -65,11 +66,3 @@ The trainer automatically saves model checkpoints when validation loss improves.
 - Pre-condensed tokens
 - Linear layer weights
 - Validation loss score
-
-## License
-
-[Add your license information here]
-
-## Citation
-
-[Add citation information if applicable]
