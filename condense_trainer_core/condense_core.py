@@ -44,11 +44,19 @@ class LitCondenseLLM(L.LightningModule):
             torch.randn(1, self.num_condense_tokens, self.hidden_size)
         )
         self.linear = nn.Linear(self.hidden_size * self.n_last_hidden_states, self.base_model_hidden_size, bias=True)
-
+        self._init_weights(self.linear)
+        self._init_weights(self.norm)
+        self._init_weights(self.pre_condensed_tokens)
         self.best_val_loss = float("inf")
         self.best_checkpoints = []
         self.hf_api = HfApi()
         self.hf_save_repo = "Condense-AI/Condense-Mistral-7B-Instruct-v0.2"
+
+    def _init_weights(self, module):
+        if isinstance(module, nn.Linear):
+            torch.nn.init.xavier_uniform_(module.weight)
+            if module.bias is not None:
+                module.bias.data.zero_()
 
     def forward(self, prompt_embeds) -> torch.Tensor:
         output = self.model(inputs_embeds=prompt_embeds, output_hidden_states=True)
@@ -106,13 +114,37 @@ class LitCondenseLLM(L.LightningModule):
         output = self.separate_decoder(inputs_embeds=inputs_embeds)
         logits = output.logits
         loss = self.loss_fn(logits, labels)
+        
+        # Generate text during validation
+        with torch.no_grad():
+            generated_ids = self.separate_decoder.generate(
+                inputs_embeds=inputs_embeds[:, :self.num_condense_tokens + 16, :],
+                max_new_tokens=100,
+                num_return_sequences=1,
+                pad_token_id=self.separate_tokenizer.pad_token_id,
+                eos_token_id=self.separate_tokenizer.eos_token_id,
+            )
+            generated_text = self.separate_tokenizer.batch_decode(generated_ids, skip_special_tokens=True)
+            # Log a sample of generated text
+            if self.global_step % 100 == 0:  # Log every 100 steps
+                self.log("generated_sample", generated_text[0], on_step=True)
+        
         self.log("val_loss", loss, on_step=False, on_epoch=True, prog_bar=True)
         return loss
 
     def configure_optimizers(self):
-        param_to_optimize = [p for p in self.model.parameters() if p.requires_grad]
+        lora_parameters = [p for p in self.model.parameters() if p.requires_grad]
+        norm_parameters = [p for p in self.model.parameters() if not p.requires_grad]
+        linear_parameters = [p for p in self.linear.parameters() if p.requires_grad]
+        pre_condensed_parameters = [p for p in self.pre_condensed_tokens if p.requires_grad]
+        group_lr = [
+            {"params": lora_parameters, "lr": 0.0001},
+            {"params": norm_parameters, "lr": 0.0001},
+            {"params": linear_parameters, "lr": 0.0001},
+            {"params": pre_condensed_parameters, "lr": 0.00001},
+        ]
         optimizer = torch.optim.AdamW(
-            param_to_optimize, lr=0.0001, weight_decay=1e-5
+            group_lr, weight_decay=1e-5
         )
         return {
             "optimizer": optimizer,
