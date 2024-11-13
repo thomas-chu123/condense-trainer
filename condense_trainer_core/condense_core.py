@@ -151,7 +151,9 @@ class LitCondenseLLM(L.LightningModule):
         inputs_embeds, labels = self._process_batch(batch)
         output = self.separate_decoder(inputs_embeds=inputs_embeds)
         logits = output.logits
+        print(logits.shape, labels.shape)
         loss = self.loss_fn(logits, labels)
+        print(loss)
         self.log("train_loss", loss, on_step=True, on_epoch=True, prog_bar=True)
         return loss
 
@@ -159,7 +161,9 @@ class LitCondenseLLM(L.LightningModule):
         inputs_embeds, labels = self._process_batch(batch)
         output = self.separate_decoder(inputs_embeds=inputs_embeds)
         logits = output.logits
+        print(logits.shape, labels.shape)
         loss = self.loss_fn(logits, labels)
+        print(loss)
         self.log("val_loss", loss, on_step=False, on_epoch=True, prog_bar=True)
         return loss
 
