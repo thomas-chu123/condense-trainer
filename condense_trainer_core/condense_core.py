@@ -18,15 +18,19 @@ class LitCondenseLLM(L.LightningModule):
         num_condense_tokens: int = 386,
         max_seq_length: int = 4096,
         n_last_hidden_states: int = 2,
+        output_dir: str = "checkpoints",
+        lora_r: int = 128,
+        lora_alpha: int = 128,
+        lora_dropout: float = 0,
     ):
         super().__init__()
         self.max_seq_length = max_seq_length
         self.model = AutoModelForCausalLM.from_pretrained(model_id, torch_dtype=torch.bfloat16).to("cuda")
         self.model = get_peft_model(self.model, peft_config=LoraConfig(
             task_type="CAUSAL_LM",
-            r=128,
-            lora_alpha=128,
-            lora_dropout=0,
+            r=lora_r,
+            lora_alpha=lora_alpha,
+            lora_dropout=lora_dropout,
             bias="none",
             target_modules=["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"],
         ))
@@ -50,7 +54,10 @@ class LitCondenseLLM(L.LightningModule):
         self.best_val_loss = float("inf")
         self.best_checkpoints = []
         self.hf_api = HfApi()
-        self.hf_save_repo = "Condense-AI/Condense-Mistral-7B-Instruct-v0.2"
+        self.hf_save_repo = f"Condense-AI/Condenser-{model_id.split('/')[-1]}"
+        self.commit_description = (f"Condenser-{model_id.split('/')[-1]}, {separate_model_id.split('/')[-1]}, "
+                                   f"LoRA r={lora_r}, LoRA alpha={lora_alpha}, LoRA dropout={lora_dropout}")
+        self.output_dir = output_dir
 
     def _init_weights(self, module):
         if isinstance(module, nn.Linear):
@@ -157,28 +164,16 @@ class LitCondenseLLM(L.LightningModule):
                 self.best_val_loss = val_loss
                 # Save only the main model state dict
                 checkpoint = {
-                    "pre_condensed_tokens": self.pre_condensed_tokens,
-                    "linear_state_dict": self.linear.state_dict(),
-                    "norm_state_dict": self.norm.state_dict(),
-                    "val_loss": val_loss,
+                    "modules": {
+                        "pre_condensed_tokens": self.pre_condensed_tokens,
+                        "linear_state_dict": self.linear.state_dict(),
+                        "norm_state_dict": self.norm.state_dict(),
+                    },
                 }
 
-                # Keep track of last 2 best checkpoints
-                if not hasattr(self, "best_checkpoints"):
-                    self.best_checkpoints = []
-
-                checkpoint_path = f"best_model_val_loss_{val_loss:.4f}.pt"
+                checkpoint_path = os.path.join(self.output_dir, "modules.pt")
+                os.makedirs(self.output_dir, exist_ok=True)
                 torch.save(checkpoint, checkpoint_path)
-                self.model.save_pretrained("peft_" + checkpoint_path)
-
-                # Add new checkpoint path and remove old if more than 2
-                self.best_checkpoints.append(checkpoint_path)
-                if len(self.best_checkpoints) > 1:
-                    # Remove oldest checkpoint file
-                    old_checkpoint = self.best_checkpoints.pop(0)
-                    if os.path.exists(old_checkpoint):
-                        os.remove(old_checkpoint)
-                        os.remove("peft_" + old_checkpoint)
                 # Push to HuggingFace Hub
                 self.hf_api.create_repo(
                     repo_id=self.hf_save_repo, repo_type="model", exist_ok=True,
@@ -188,12 +183,7 @@ class LitCondenseLLM(L.LightningModule):
                     path_in_repo=checkpoint_path,
                     repo_id=self.hf_save_repo,
                     run_as_future=True,
-                )
-                self.hf_api.upload_file(
-                    path_or_fileobj="peft_" + checkpoint_path,
-                    path_in_repo="peft_" + checkpoint_path,
-                    repo_id=self.hf_save_repo,
-                    run_as_future=True,
+                    commit_description=self.commit_description + f", Val Loss: {val_loss:.4f}",
                 )
         except Exception as e:
             print(f"Error in on_validation_epoch_end: {e}")
