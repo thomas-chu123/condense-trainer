@@ -5,6 +5,7 @@ import torch.nn as nn
 from transformers import (
     AutoTokenizer,
     MistralForCausalLM,
+    AutoModelForCausalLM,
 )
 from transformers import TextGenerationPipeline
 import os
@@ -54,7 +55,7 @@ class LitCondenseLLM(L.LightningModule):
         # )
         # self.model = model
         # self.tokenizer = tokenizer
-        self.model = MistralForCausalLM.from_pretrained(model_id, torch_dtype=torch.bfloat16)
+        self.model = AutoModelForCausalLM.from_pretrained(model_id, torch_dtype=torch.bfloat16)
         self.tokenizer = AutoTokenizer.from_pretrained(model_id)
 
         self.num_condense_tokens = num_condense_tokens
@@ -143,7 +144,7 @@ class LitCondenseLLM(L.LightningModule):
         #     dtype=None,
         #     load_in_4bit=False,
         # )
-        self.separate_decoder = MistralForCausalLM.from_pretrained(model_name_or_pretrained_path, torch_dtype=torch.bfloat16)
+        self.separate_decoder = AutoModelForCausalLM.from_pretrained(model_name_or_pretrained_path, torch_dtype=torch.bfloat16)
 
         for param in self.separate_decoder.parameters():
             param.requires_grad = False
