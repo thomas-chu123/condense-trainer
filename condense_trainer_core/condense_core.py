@@ -10,7 +10,7 @@ from huggingface_hub import HfApi
 from peft import get_peft_model, LoraConfig
 import os
 import wandb
-
+import traceback
 class LitCondenseLLM(L.LightningModule):
     def __init__(
         self,
@@ -153,7 +153,7 @@ class LitCondenseLLM(L.LightningModule):
                 # Save only the main model state dict
                 checkpoint = {
                     "modules": {
-                        "pre_condensed_tokens": self.pre_condensed_tokens,
+                        "pre_condensed_tokens": self.pre_condensed_tokens.detach().cpu(),
                         "linear_state_dict": self.linear.state_dict(),
                         "norm_state_dict": self.norm.state_dict(),
                     },
@@ -174,6 +174,7 @@ class LitCondenseLLM(L.LightningModule):
                     commit_description=self.commit_description + f", Val Loss: {val_loss:.4f}",
                 )
         except Exception as e:
+            traceback.print_exc()
             print(f"Error in on_validation_epoch_end: {e}")
 
     def configure_optimizers(self):
