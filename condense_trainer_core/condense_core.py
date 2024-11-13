@@ -172,6 +172,7 @@ class LitCondenseLLM(L.LightningModule):
                     run_as_future=True,
                     commit_description=self.commit_description + f", Val Loss: {val_loss:.4f}",
                 )
+                self.model.push_to_hub(self.hf_save_repo)
         except Exception as e:
             traceback.print_exc()
             print(f"Error in on_validation_epoch_end: {e}")
