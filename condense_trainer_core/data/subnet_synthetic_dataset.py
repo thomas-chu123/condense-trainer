@@ -20,6 +20,7 @@ class SubnetSyntheticDataset(Dataset):
     ):
         # Load full training dataset since only train split exists
         full_dataset = load_dataset(dataset_id, split="train", streaming=False)
+        full_dataset = full_dataset.filter(lambda x: x["task"] == "reconstruction")
         
         # Split into train/test based on split parameter
         if split == "train":
