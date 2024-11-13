@@ -22,7 +22,7 @@ class LitCondenseLLM(L.LightningModule):
         max_seq_length: int = 4096,
     ):
         super().__init__()
-
+        self.max_seq_length = max_seq_length
         # Initialize model and tokenizer
         model, tokenizer = FastLanguageModel.from_pretrained(
             model_name="unsloth/llama-3-8b-bnb-4bit",
