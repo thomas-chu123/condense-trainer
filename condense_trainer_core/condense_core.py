@@ -70,31 +70,22 @@ class LitCondenseLLM(L.LightningModule):
         uncondensed_ids = batch["uncondensed"]
         n_batch = context_ids.shape[0]
         
-        print(f"context_ids shape: {context_ids.shape}")
-        print(f"uncondensed_ids shape: {uncondensed_ids.shape}")
         
         padding_labels = torch.full((n_batch, self.num_condense_tokens), -100, 
                                     device=context_ids.device)
         labels = torch.cat((padding_labels, uncondensed_ids), dim=1)
-        print(f"labels shape: {labels.shape}")
 
         context_embeds = self.model.get_input_embeddings()(context_ids)
-        print(f"context_embeds shape: {context_embeds.shape}")
         
         pre_condensed_embeds = self.pre_condensed_tokens.repeat(n_batch, 1, 1)
-        print(f"pre_condensed_embeds shape: {pre_condensed_embeds.shape}")
         
         inputs_embeds_condense = torch.cat([context_embeds, pre_condensed_embeds], dim=1)
-        print(f"inputs_embeds_condense shape: {inputs_embeds_condense.shape}")
         
         condensed_tokens = self.forward(inputs_embeds_condense)
-        print(f"condensed_tokens shape: {condensed_tokens.shape}")
         
         uncondensed_embeds = self.separate_decoder.get_input_embeddings()(uncondensed_ids)
-        print(f"uncondensed_embeds shape: {uncondensed_embeds.shape}")
         
         inputs_embeds = torch.cat([condensed_tokens, uncondensed_embeds], dim=1)
-        print(f"final inputs_embeds shape: {inputs_embeds.shape}")
         
         return inputs_embeds, labels
 
