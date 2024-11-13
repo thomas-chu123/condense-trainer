@@ -9,6 +9,8 @@ from transformers import (
 from transformers import TextGenerationPipeline
 import os
 from huggingface_hub import HfApi
+from unsloth import FastLanguageModel
+from unsloth import is_bfloat16_supported
 
 
 class LitCondenseLLM(L.LightningModule):
@@ -16,20 +18,51 @@ class LitCondenseLLM(L.LightningModule):
         self,
         model_id: str,
         num_condense_tokens: int = 386,
+        max_seq_length: int = 4096,
     ):
         super().__init__()
-        
+
         # Initialize model and tokenizer
-        self.model = MistralForCausalLM.from_pretrained(model_id, torch_dtype=torch.bfloat16)
-        self.tokenizer = AutoTokenizer.from_pretrained(model_id)
-        
+        model, tokenizer = FastLanguageModel.from_pretrained(
+            model_name="unsloth/llama-3-8b-bnb-4bit",
+            max_seq_length=max_seq_length,
+            dtype=None,
+            load_in_4bit=True,
+        )
+
+        model = FastLanguageModel.get_peft_model(
+            model,
+            r=129,
+            target_modules=[
+                "q_proj",
+                "k_proj",
+                "v_proj",
+                "o_proj",
+                "gate_proj",
+                "up_proj",
+                "down_proj",
+            ],
+            lora_alpha=128,
+            lora_dropout=0,  # Supports any, but = 0 is optimized
+            bias="none",  # Supports any, but = "none" is optimized
+            # [NEW] "unsloth" uses 30% less VRAM, fits 2x larger batch sizes!
+            use_gradient_checkpointing="unsloth",  # True or "unsloth" for very long context
+            random_state=3407,
+            max_seq_length=max_seq_length,
+            use_rslora=False,  # We support rank stabilized LoRA
+            loftq_config=None,  # And LoftQ
+        )
+
+        self.model = model
+        self.tokenizer = tokenizer
+
         # Model configuration
         self.num_condense_tokens = num_condense_tokens
         self.hidden_size = self.model.config.hidden_size
-        
+
         # Unfreeze specific layers
         self._unfreeze_layers_and_norm(n_layers=1)
-        
+
         # Create decoder and pipeline
         self.create_separate_decoder(model_id)
         self.pipeline = TextGenerationPipeline(
@@ -37,19 +70,15 @@ class LitCondenseLLM(L.LightningModule):
             tokenizer=self.tokenizer,
             device="cuda",
         )
-        
+
         # Initialize learnable parameters
         self.pre_condensed_tokens = nn.Parameter(
             torch.randn(1, self.num_condense_tokens, self.hidden_size)
         )
-        self.linear = nn.Linear(
-            self.hidden_size * 2, 
-            self.hidden_size, 
-            bias=True
-        )
-        
+        self.linear = nn.Linear(self.hidden_size * 2, self.hidden_size, bias=True)
+
         # Training state
-        self.best_val_loss = float('inf')
+        self.best_val_loss = float("inf")
         self.best_checkpoints = []
         self.hf_api = HfApi()
         self.hf_save_repo = "Condense-AI/Condense-Mistral-7B-Instruct-v0.2"
@@ -68,22 +97,24 @@ class LitCondenseLLM(L.LightningModule):
         output = self.model(inputs_embeds=prompt_embeds, output_hidden_states=True)
         hidden_states = output.hidden_states[-2:]
         concated_hidden_states = torch.cat(hidden_states, dim=-1)
-        concated_hidden_states = concated_hidden_states[:, -self.num_condense_tokens:, :]
+        concated_hidden_states = concated_hidden_states[
+            :, -self.num_condense_tokens :, :
+        ]
         condensed_tokens = self.linear(concated_hidden_states)
         return condensed_tokens
 
     def loss_fn(self, logits, labels):
         # Extract logits tensor if it's a model output object
         # Convert labels to LongTensor
-        if hasattr(logits, 'logits'):
+        if hasattr(logits, "logits"):
             logits = logits.logits
-            
+
         logits = logits[:, :-1, :].contiguous().view(-1, logits.size(-1))
         labels = labels[:, 1:].contiguous().view(-1)
-        
+
         # Get padding token ID from tokenizer
         pad_token_id = self.tokenizer.pad_token_id
-        
+
         # Convert padding tokens to -100
         labels[labels == pad_token_id] = -100
         labels = labels.long()
@@ -97,26 +128,27 @@ class LitCondenseLLM(L.LightningModule):
         n_batch = context_ids.shape[0]
         labels = torch.concatenate(
             (
-                -100 * torch.ones(n_batch, self.num_condense_tokens).to(context_ids.device),
+                -100
+                * torch.ones(n_batch, self.num_condense_tokens).to(context_ids.device),
                 uncondensed_ids,
             ),
             dim=1,
         )
-        
+
         # Generate embeddings
         context_embeds = self.model.get_input_embeddings()(context_ids)
         pre_condensed_embeds = self.pre_condensed_tokens.repeat(n_batch, 1, 1)
         inputs_embeds_condense = torch.cat(
             [context_embeds, pre_condensed_embeds], dim=1
         )
-        
+
         # Get condensed representation
         condensed_tokens = self.forward(inputs_embeds_condense)
-        
+
         # Generate final embeddings
         uncondensed_embeds = self.model.get_input_embeddings()(uncondensed_ids)
         inputs_embeds = torch.cat([condensed_tokens, uncondensed_embeds], dim=1)
-        
+
         return inputs_embeds, labels
 
     def training_step(self, batch):
@@ -142,19 +174,19 @@ class LitCondenseLLM(L.LightningModule):
                 self.best_val_loss = val_loss
                 # Save only the main model state dict
                 checkpoint = {
-                    'model_state_dict': self.model.state_dict(),
-                    'pre_condensed_tokens': self.pre_condensed_tokens,
-                    'linear_state_dict': self.linear.state_dict(),
-                    'val_loss': val_loss
+                    "model_state_dict": self.model.state_dict(),
+                    "pre_condensed_tokens": self.pre_condensed_tokens,
+                    "linear_state_dict": self.linear.state_dict(),
+                    "val_loss": val_loss,
                 }
-                
+
                 # Keep track of last 2 best checkpoints
-                if not hasattr(self, 'best_checkpoints'):
+                if not hasattr(self, "best_checkpoints"):
                     self.best_checkpoints = []
-                    
+
                 checkpoint_path = f"best_model_val_loss_{val_loss:.4f}.pt"
                 torch.save(checkpoint, checkpoint_path)
-                
+
                 # Add new checkpoint path and remove old if more than 2
                 self.best_checkpoints.append(checkpoint_path)
                 if len(self.best_checkpoints) > 1:
@@ -163,7 +195,9 @@ class LitCondenseLLM(L.LightningModule):
                     if os.path.exists(old_checkpoint):
                         os.remove(old_checkpoint)
                 # Push to HuggingFace Hub
-                self.hf_api.create_repo(repo_id=self.hf_save_repo, repo_type="model", exist_ok=True)
+                self.hf_api.create_repo(
+                    repo_id=self.hf_save_repo, repo_type="model", exist_ok=True
+                )
                 self.hf_api.upload_file(
                     path_or_fileobj=checkpoint_path,
                     path_in_repo=checkpoint_path,
@@ -172,7 +206,7 @@ class LitCondenseLLM(L.LightningModule):
                 )
         except Exception as e:
             print(f"Error in on_validation_epoch_end: {e}")
-            
+
     def configure_optimizers(self):
         param_to_optimize = [p for p in self.model.parameters() if p.requires_grad]
         optimizer = torch.optim.AdamW(
@@ -183,9 +217,13 @@ class LitCondenseLLM(L.LightningModule):
         }
 
     def create_separate_decoder(self, model_name_or_pretrained_path, **kwargs):
-        self.separate_decoder = MistralForCausalLM.from_pretrained(
+        self.separate_decoder, _ = FastLanguageModel.from_pretrained(
             model_name_or_pretrained_path,
-            torch_dtype=torch.bfloat16,
+            max_seq_length=self.max_seq_length,
+            dtype=None,
+            load_in_4bit=True,
         )
+
+        # Freeze model
         for param in self.separate_decoder.parameters():
             param.requires_grad = False
