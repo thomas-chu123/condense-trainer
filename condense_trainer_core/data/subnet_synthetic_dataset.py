@@ -12,6 +12,7 @@ class SubnetSyntheticDataset(Dataset):
         self,
         dataset_id: str,
         tokenizer: LlamaTokenizer,
+        separate_tokenizer: LlamaTokenizer,
         num_condense_tokens=512,
         max_characters=10000,
         max_length=2048,
@@ -30,7 +31,7 @@ class SubnetSyntheticDataset(Dataset):
         self.num_condense_tokens = num_condense_tokens
         self.max_characters = max_characters
         self.max_length = max_length
-
+        self.separate_tokenizer = separate_tokenizer
     def __len__(self):
         return len(self.dataset)
 
@@ -48,7 +49,7 @@ class SubnetSyntheticDataset(Dataset):
             truncation=True,
         )
         full_completion = activation_prompt + expected_completion
-        expected_completion_ids = self.tokenizer.encode(
+        expected_completion_ids = self.separate_tokenizer.encode(
             full_completion,
             add_special_tokens=False,
             return_tensors="pt",

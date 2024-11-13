@@ -16,16 +16,19 @@ model_id = "Condense-AI/Mistral-7B-Instruct-v0.2"
 lit_model = LitCondenseLLM(model_id, num_condense_tokens=num_condense_tokens, max_seq_length=max_tokens)
 
 tokenizer = lit_model.tokenizer
+separate_tokenizer = lit_model.separate_tokenizer
 
 # Set padding token
 if tokenizer.pad_token is None:
-    tokenizer.pad_token = tokenizer.eos_token
+    tokenizer.pad_token = tokenizer.unk_token
+if separate_tokenizer.pad_token is None:
+    separate_tokenizer.pad_token = separate_tokenizer.unk_token
 
 train_dataset = SubnetSyntheticDataset(
-    dataset_id, tokenizer, num_condense_tokens, max_characters, max_length=max_tokens
+    dataset_id, tokenizer, separate_tokenizer, num_condense_tokens, max_characters, max_length=max_tokens
 )
 validation_dataset = SubnetSyntheticDataset(
-    dataset_id, tokenizer, num_condense_tokens, max_characters, max_length=max_tokens, split="test"
+    dataset_id, tokenizer, separate_tokenizer, num_condense_tokens, max_characters, max_length=max_tokens, split="test"
 )
 
 trainer = Trainer(

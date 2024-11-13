@@ -14,6 +14,7 @@ class LitCondenseLLM(L.LightningModule):
     def __init__(
         self,
         model_id: str,
+        separate_model_id: str,
         num_condense_tokens: int = 386,
         max_seq_length: int = 4096,
         n_last_hidden_states: int = 2,
@@ -31,11 +32,11 @@ class LitCondenseLLM(L.LightningModule):
         ))
         self.model.print_trainable_parameters()
         self.tokenizer = AutoTokenizer.from_pretrained(model_id)
-
         self.num_condense_tokens = num_condense_tokens
         self.n_last_hidden_states = n_last_hidden_states
         self.hidden_size = self.model.config.hidden_size
-        self.create_separate_decoder(model_id)
+        self.separate_decoder = self.create_separate_decoder(separate_model_id)
+        self.separate_tokenizer = AutoTokenizer.from_pretrained(separate_model_id)
         self.base_model_hidden_size = self.separate_decoder.config.hidden_size
         # Initialize learnable parameters
         self.norm = nn.LayerNorm(self.hidden_size * self.n_last_hidden_states)
@@ -166,7 +167,8 @@ class LitCondenseLLM(L.LightningModule):
             print(f"Error in on_validation_epoch_end: {e}")
 
     def create_separate_decoder(self, model_name_or_pretrained_path, **kwargs):
-        self.separate_decoder = AutoModelForCausalLM.from_pretrained(model_name_or_pretrained_path, torch_dtype=torch.bfloat16).to("cuda")
+        separate_decoder = AutoModelForCausalLM.from_pretrained(model_name_or_pretrained_path, torch_dtype=torch.bfloat16).to("cuda")
 
-        for param in self.separate_decoder.parameters():
+        for param in separate_decoder.parameters():
             param.requires_grad = False
+        return separate_decoder
