@@ -23,38 +23,40 @@ class LitCondenseLLM(L.LightningModule):
     ):
         super().__init__()
         self.max_seq_length = max_seq_length
-        model, tokenizer = FastLanguageModel.from_pretrained(
-            model_name=model_id,
-            max_seq_length=max_seq_length,
-            dtype=None,
-            load_in_4bit=False,
-            fix_tokenizer=True
-        )
+        # model, tokenizer = FastLanguageModel.from_pretrained(
+        #     model_name=model_id,
+        #     max_seq_length=max_seq_length,
+        #     dtype=None,
+        #     load_in_4bit=False,
+        #     fix_tokenizer=True
+        # )
 
-        model: PeftModel = FastLanguageModel.get_peft_model(
-            model,
-            r=128,
-            target_modules=[
-                "q_proj",
-                "k_proj",
-                "v_proj",
-                "o_proj",
-                "gate_proj",
-                "up_proj",
-                "down_proj",
-            ],
-            lora_alpha=128,
-            lora_dropout=0,
-            bias="none",
-            use_gradient_checkpointing="unsloth",
-            random_state=3407,
-            max_seq_length=max_seq_length,
-            use_rslora=False,
-            loftq_config=None,
-        )
+        # model: PeftModel = FastLanguageModel.get_peft_model(
+        #     model,
+        #     r=128,
+        #     target_modules=[
+        #         "q_proj",
+        #         "k_proj",
+        #         "v_proj",
+        #         "o_proj",
+        #         "gate_proj",
+        #         "up_proj",
+        #         "down_proj",
+        #     ],
+        #     lora_alpha=128,
+        #     lora_dropout=0,
+        #     bias="none",
+        #     use_gradient_checkpointing="unsloth",
+        #     random_state=3407,
+        #     max_seq_length=max_seq_length,
+        #     use_rslora=False,
+        #     loftq_config=None,
+        # )
+        # self.model = model
+        # self.tokenizer = tokenizer
+        self.model = MistralForCausalLM.from_pretrained(model_id, torch_dtype=torch.bfloat16)
+        self.tokenizer = AutoTokenizer.from_pretrained(model_id)
 
-        self.model = model
-        self.tokenizer = tokenizer
         self.num_condense_tokens = num_condense_tokens
         self.hidden_size = self.model.config.hidden_size
         self.create_separate_decoder(model_id)
@@ -81,9 +83,6 @@ class LitCondenseLLM(L.LightningModule):
         return condensed_tokens
 
     def loss_fn(self, logits, labels):
-        if hasattr(logits, "logits"):
-            logits = logits.logits
-
         logits = logits[:, :-1, :].contiguous().view(-1, logits.size(-1))
         labels = labels[:, 1:].contiguous().view(-1)
         pad_token_id = self.tokenizer.pad_token_id
@@ -138,12 +137,13 @@ class LitCondenseLLM(L.LightningModule):
         }
 
     def create_separate_decoder(self, model_name_or_pretrained_path, **kwargs):
-        self.separate_decoder, _ = FastLanguageModel.from_pretrained(
-            model_name_or_pretrained_path,
-            max_seq_length=self.max_seq_length,
-            dtype=None,
-            load_in_4bit=False,
-        )
+        # self.separate_decoder, _ = FastLanguageModel.from_pretrained(
+        #     model_name_or_pretrained_path,
+        #     max_seq_length=self.max_seq_length,
+        #     dtype=None,
+        #     load_in_4bit=False,
+        # )
+        self.separate_decoder = MistralForCausalLM.from_pretrained(model_name_or_pretrained_path, torch_dtype=torch.bfloat16)
 
         for param in self.separate_decoder.parameters():
             param.requires_grad = False
