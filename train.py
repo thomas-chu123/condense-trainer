@@ -11,9 +11,9 @@ max_tokens = 4096
 max_characters = 10000
 
 dataset_id = "Condense-AI/benchmark-condense-v0.1"
-model_id = "Condense-AI/Mistral-7B-Instruct-v0.2"
-
-lit_model = LitCondenseLLM(model_id, num_condense_tokens=num_condense_tokens, max_seq_length=max_tokens)
+model_id = "meta-llama/Llama-3.2-1B"
+separate_model_id = "Condense-AI/Mistral-7B-Instruct-v0.2"
+lit_model = LitCondenseLLM(model_id, separate_model_id, num_condense_tokens=num_condense_tokens, max_seq_length=max_tokens)
 
 tokenizer = lit_model.tokenizer
 separate_tokenizer = lit_model.separate_tokenizer
