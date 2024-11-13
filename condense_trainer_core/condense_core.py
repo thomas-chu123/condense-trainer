@@ -29,6 +29,7 @@ class LitCondenseLLM(L.LightningModule):
             max_seq_length=max_seq_length,
             dtype=None,
             load_in_4bit=True,
+            fix_tokenizer=False
         )
 
         model: PeftModel = FastLanguageModel.get_peft_model(
