@@ -19,7 +19,7 @@ class LitCondenseLLM(L.LightningModule):
     ):
         super().__init__()
         self.max_seq_length = max_seq_length
-        self.model = AutoModelForCausalLM.from_pretrained("unsloth/Llama-3.2-1B", torch_dtype=torch.bfloat16)
+        self.model = AutoModelForCausalLM.from_pretrained(model_id, torch_dtype=torch.bfloat16)
         self.model = get_peft_model(self.model, peft_config=LoraConfig(
             task_type="CAUSAL_LM",
             r=128,
@@ -155,7 +155,7 @@ class LitCondenseLLM(L.LightningModule):
             print(f"Error in on_validation_epoch_end: {e}")
 
     def create_separate_decoder(self, model_name_or_pretrained_path, **kwargs):
-        self.separate_decoder = AutoModelForCausalLM.from_pretrained("Condense-AI/Mistral-7B-Instruct-v0.2", torch_dtype=torch.bfloat16)
+        self.separate_decoder = AutoModelForCausalLM.from_pretrained(model_name_or_pretrained_path, torch_dtype=torch.bfloat16)
 
         for param in self.separate_decoder.parameters():
             param.requires_grad = False
