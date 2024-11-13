@@ -79,7 +79,7 @@ class LitCondenseLLM(L.LightningModule):
         pre_condensed_embeds = self.pre_condensed_tokens.repeat(n_batch, 1, 1)
         inputs_embeds_condense = torch.cat([context_embeds, pre_condensed_embeds], dim=1)
         condensed_tokens = self.forward(inputs_embeds_condense)
-        uncondensed_embeds = self.model.get_input_embeddings()(uncondensed_ids)
+        uncondensed_embeds = self.separate_decoder.get_input_embeddings()(uncondensed_ids)
         inputs_embeds = torch.cat([condensed_tokens, uncondensed_embeds], dim=1)
         return inputs_embeds, labels
 
