@@ -25,11 +25,11 @@ class LitCondenseLLM(L.LightningModule):
         self.max_seq_length = max_seq_length
         # Initialize model and tokenizer
         model, tokenizer = FastLanguageModel.from_pretrained(
-            model_name="unsloth/llama-3-8b-bnb-4bit",
+            model_name=model_id,
             max_seq_length=max_seq_length,
             dtype=None,
             load_in_4bit=True,
-            fix_tokenizer=False
+            fix_tokenizer=True
         )
 
         model: PeftModel = FastLanguageModel.get_peft_model(
