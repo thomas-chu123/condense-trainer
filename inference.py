@@ -36,7 +36,7 @@ class Condenser(nn.Module):
         inputs_embeds = None
         if prompt_ids is not None:
             prompt_embeds = self.decoder_model.get_input_embeddings()(prompt_ids)
-            inputs_embeds = torch.cat((prompt_embeds, condensed_tokens), dim=1)
+            inputs_embeds = torch.cat((condensed_tokens, prompt_embeds), dim=1)
         return condensed_tokens, inputs_embeds
         
 
