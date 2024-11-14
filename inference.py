@@ -31,7 +31,7 @@ class Condenser(nn.Module):
         self.norm.load_state_dict({k: v.to(dtype=self.dtype, device="cuda") for k, v in state_dict["norm_state_dict"].items()})
 
     @torch.no_grad()
-    def forward(self, context_ids, prompt_ids=None) -> Tuple[torch.Tensor, Optional[torch.Tensor]]:
+    def forward(self, context_ids, prompt_ids=None) -> Tuple[torch.LongTensor, Optional[torch.LongTensor]]:
         condensed_tokens = self._condense_context(context_ids)
         inputs_embeds = None
         if prompt_ids is not None:
@@ -53,8 +53,8 @@ class Condenser(nn.Module):
         return condensed_tokens
         
     def generate(self, context: str, prompt: str, max_new_tokens: int, **kwargs):
-        context_ids = self.condense_tokenizer.encode(context, return_tensors="pt", add_special_tokens=False).to(dtype=self.dtype, device="cuda")
-        prompt_ids = self.decoder_tokenizer.encode(prompt, return_tensors="pt", add_special_tokens=False).to(dtype=self.dtype, device="cuda")
+        context_ids = self.condense_tokenizer.encode(context, return_tensors="pt", add_special_tokens=False).to(device="cuda").long()
+        prompt_ids = self.decoder_tokenizer.encode(prompt, return_tensors="pt", add_special_tokens=False).to(device="cuda").long()
         condensed_tokens, inputs_embeds = self.forward(context_ids, prompt_ids)
         condesed_inputs_embeds = torch.cat((condensed_tokens, inputs_embeds), dim=1)
         return self.decoder_model.generate(inputs_embeds=condesed_inputs_embeds, max_new_tokens=max_new_tokens, **kwargs)
