@@ -63,7 +63,7 @@ if __name__ == "__main__":
     from datasets import load_dataset
     dataset = load_dataset("Condense-AI/benchmark-condense-v0.1", split="train")
     context = dataset[0]["context"]
-    prompt = dataset[0]["activation_prompt"]
+    prompt = dataset[0]["activation_prompt"] + "</s> [INST]"
     condense_model = AutoModelForCausalLM.from_pretrained(condense_model_id, torch_dtype=torch.bfloat16).to("cuda")
     condense_tokenizer = AutoTokenizer.from_pretrained(condense_base_model_id)
     decoder_model = AutoModelForCausalLM.from_pretrained(decoder_model_id, torch_dtype=torch.bfloat16).to("cuda")
