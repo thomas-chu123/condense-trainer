@@ -45,7 +45,7 @@ class Condenser(nn.Module):
         context_embeds = self.condense_model.get_input_embeddings()(context_ids)
         inputs_embeds_condense = torch.cat([context_embeds, self.pre_condensed_tokens], dim=1)
         expaned_attention_mask = torch.cat([attention_mask, torch.ones(attention_mask.shape[0], self.num_condense_tokens, dtype=attention_mask.dtype, device=attention_mask.device)], dim=1)
-        output = self.condense_model(inputs_embeds=inputs_embeds_condense, output_hidden_states=True, attention_mask=attention_mask)
+        output = self.condense_model(inputs_embeds=inputs_embeds_condense, output_hidden_states=True, attention_mask=expaned_attention_mask)
         hidden_states = output.hidden_states[-self.n_last_hidden_states:]
         concated_hidden_states = torch.cat(hidden_states, dim=-1)
         concated_hidden_states = concated_hidden_states[
@@ -55,7 +55,9 @@ class Condenser(nn.Module):
         return condensed_tokens
         
     def generate(self, context: str, prompt: str, max_new_tokens: int, **kwargs):
-        context_ids, attention_mask = self.condense_tokenizer(context, return_tensors="pt", add_special_tokens=False, padding="max_length", max_length=4096, truncation=True).to(device="cuda").long()
+        context_ids, attention_mask = self.condense_tokenizer(context, return_tensors="pt", add_special_tokens=False, padding="max_length", max_length=4096, truncation=True)
+        context_ids = context_ids.to(device="cuda")
+        attention_mask = attention_mask.to(device="cuda")
         prompt_ids = self.decoder_tokenizer.encode(prompt, return_tensors="pt", add_special_tokens=False).to(device="cuda").long()
         condensed_tokens, inputs_embeds = self.forward(context_ids, prompt_ids, attention_mask)
         condesed_inputs_embeds = torch.cat((condensed_tokens, inputs_embeds), dim=1)
