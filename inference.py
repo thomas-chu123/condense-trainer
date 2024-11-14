@@ -68,7 +68,7 @@ if __name__ == "__main__":
     dataset = load_dataset("Condense-AI/benchmark-condense-v0.1", split="train")
     context = dataset[0]["context"]
     prompt = dataset[0]["activation_prompt"] + "[/INST]"
-    prompt = "</s> [INST] Please write above conversations in the following format:\n**[User]**: {user_message}\n**[Assistant]**: {assistant_message}\n--- \n(next conversation)[/INST]"
+    # prompt = "</s> [INST] Please write above conversations in the following format:\n**[User]**: {user_message}\n**[Assistant]**: {assistant_message}\n--- \n(next conversation)[/INST]"
     condense_model = AutoModelForCausalLM.from_pretrained(condense_model_id, torch_dtype=torch.bfloat16).to("cuda")
     condense_tokenizer = AutoTokenizer.from_pretrained(condense_base_model_id)
     decoder_model = AutoModelForCausalLM.from_pretrained(decoder_model_id, torch_dtype=torch.bfloat16).to("cuda")
@@ -83,7 +83,7 @@ if __name__ == "__main__":
     condenser.load_state_dict(state_dict["modules"])
     condenser.eval()
     
-    output = condenser.generate(context, prompt, max_new_tokens=256, min_new_tokens=64, do_sample=False)
+    output = condenser.generate(context, prompt, max_new_tokens=512, min_new_tokens=64, do_sample=False)
     print(output)
     completion_text = decoder_tokenizer.decode(output[0], skip_special_tokens=True)
     print(f"Context: {context}")
