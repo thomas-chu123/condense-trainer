@@ -66,7 +66,7 @@ class Condenser(nn.Module):
 if __name__ == "__main__":
     from datasets import load_dataset
     dataset = load_dataset("Condense-AI/benchmark-condense-v0.1", split="train")
-    context = dataset[0]["context"]
+    context = dataset[0]["context"][:4000]
     # prompt = dataset[0]["activation_prompt"] + "[/INST]"
     prompt = "</s> [INST] Please write above conversations in the following format:\n**[User]**: {user_message}\n**[Assistant]**: {assistant_message}\n--- \n(next conversation)[/INST]"
     condense_model = AutoModelForCausalLM.from_pretrained(condense_model_id, torch_dtype=torch.bfloat16).to("cuda")
