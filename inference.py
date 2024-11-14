@@ -4,7 +4,6 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 import torch.nn as nn
 from typing import Tuple, Optional
 condense_model_id = "Condense-AI/Condenser-Llama-3.2-1B"
-condense_base_model_id = "meta-llama/Llama-3.2-1B"
 decoder_model_id = "Condense-AI/Mistral-7B-Instruct-v0.2"
 
 class Condenser(nn.Module):
@@ -77,7 +76,7 @@ if __name__ == "__main__":
     prompt = dataset[0]["activation_prompt"] + "[/INST]"
     prompt = "</s> [INST] Please write above conversations in the following format:\n**[User]**: {user_message}\n**[Assistant]**: {assistant_message}\n--- \n(next conversation)[/INST]"
     condense_model = AutoModelForCausalLM.from_pretrained(condense_model_id, torch_dtype=torch.bfloat16).to("cuda")
-    condense_tokenizer = AutoTokenizer.from_pretrained(condense_base_model_id)
+    condense_tokenizer = AutoTokenizer.from_pretrained(condense_model_id)
     decoder_model = AutoModelForCausalLM.from_pretrained(decoder_model_id, torch_dtype=torch.bfloat16).to("cuda")
     decoder_tokenizer = AutoTokenizer.from_pretrained(decoder_model_id)
 
@@ -90,7 +89,7 @@ if __name__ == "__main__":
     condenser.load_state_dict(state_dict["modules"])
     condenser.eval()
     
-    output = condenser.generate(context, prompt, max_new_tokens=256, min_new_tokens=64)
+    output = condenser.generate(context, prompt, max_new_tokens=256, min_new_tokens=64, do_sample=False)
     print(output)
     completion_text = decoder_tokenizer.decode(output[0], skip_special_tokens=True)
     print(f"Context: {context}")
