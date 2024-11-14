@@ -82,7 +82,7 @@ if __name__ == "__main__":
     condenser = Condenser(condense_model, condense_tokenizer, decoder_model, decoder_tokenizer, num_condense_tokens, n_last_hidden_states, dtype=torch.bfloat16)
     condenser.load_state_dict(state_dict["modules"])
     
-    output = condenser.generate(context, prompt, max_new_tokens=64, min_new_tokens=64)
+    output = condenser.generate(context, prompt, max_new_tokens=256, min_new_tokens=64)
     print(output)
     completion_text = decoder_tokenizer.decode(output[0], skip_special_tokens=True)
     print(f"Context: {context}")
