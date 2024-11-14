@@ -55,9 +55,9 @@ class Condenser(nn.Module):
         return condensed_tokens
         
     def generate(self, context: str, prompt: str, max_new_tokens: int, **kwargs):
-        context_ids, attention_mask = self.condense_tokenizer(context, return_tensors="pt", add_special_tokens=False, padding="max_length", max_length=4096, truncation=True)
-        context_ids = context_ids.to(device="cuda")
-        attention_mask = attention_mask.to(device="cuda")
+        output = self.condense_tokenizer(context, return_tensors="pt", add_special_tokens=False, padding="max_length", max_length=4096, truncation=True, return_attention_mask=True)
+        context_ids = output.input_ids.to(device="cuda")
+        attention_mask = output.attention_mask.to(device="cuda")
         prompt_ids = self.decoder_tokenizer.encode(prompt, return_tensors="pt", add_special_tokens=False).to(device="cuda").long()
         condensed_tokens, inputs_embeds = self.forward(context_ids, prompt_ids, attention_mask)
         condesed_inputs_embeds = torch.cat((condensed_tokens, inputs_embeds), dim=1)
