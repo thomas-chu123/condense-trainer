@@ -31,8 +31,8 @@ class Condenser(nn.Module):
         self.norm.load_state_dict({k: v.to(dtype=self.dtype, device="cuda") for k, v in state_dict["norm_state_dict"].items()})
 
     @torch.no_grad()
-    def forward(self, context_ids, prompt_ids=None) -> Tuple[torch.LongTensor, Optional[torch.LongTensor]]:
-        condensed_tokens = self._condense_context(context_ids)
+    def forward(self, context_ids, prompt_ids=None, attention_mask=None) -> Tuple[torch.LongTensor, Optional[torch.LongTensor]]:
+        condensed_tokens = self._condense_context(context_ids, attention_mask)
         inputs_embeds = None
         if prompt_ids is not None:
             prompt_embeds = self.decoder_model.get_input_embeddings()(prompt_ids)
@@ -40,10 +40,11 @@ class Condenser(nn.Module):
         return condensed_tokens, inputs_embeds
         
 
-    def _condense_context(self, context_ids) -> torch.Tensor:
+    def _condense_context(self, context_ids, attention_mask) -> torch.Tensor:
         context_embeds = self.condense_model.get_input_embeddings()(context_ids)
         inputs_embeds_condense = torch.cat([context_embeds, self.pre_condensed_tokens], dim=1)
-        output = self.condense_model(inputs_embeds=inputs_embeds_condense, output_hidden_states=True)
+        expaned_attention_mask = torch.cat([attention_mask, torch.ones(attention_mask.shape[0], self.num_condense_tokens, dtype=attention_mask.dtype, device=attention_mask.device)], dim=1)
+        output = self.condense_model(inputs_embeds=inputs_embeds_condense, output_hidden_states=True, attention_mask=attention_mask)
         hidden_states = output.hidden_states[-self.n_last_hidden_states:]
         concated_hidden_states = torch.cat(hidden_states, dim=-1)
         concated_hidden_states = concated_hidden_states[
@@ -53,9 +54,9 @@ class Condenser(nn.Module):
         return condensed_tokens
         
     def generate(self, context: str, prompt: str, max_new_tokens: int, **kwargs):
-        context_ids = self.condense_tokenizer.encode(context, return_tensors="pt", add_special_tokens=False).to(device="cuda").long()
+        context_ids, attention_mask = self.condense_tokenizer(context, return_tensors="pt", add_special_tokens=False, padding="max_length", max_length=4096, truncation=True).to(device="cuda").long()
         prompt_ids = self.decoder_tokenizer.encode(prompt, return_tensors="pt", add_special_tokens=False).to(device="cuda").long()
-        condensed_tokens, inputs_embeds = self.forward(context_ids, prompt_ids)
+        condensed_tokens, inputs_embeds = self.forward(context_ids, prompt_ids, attention_mask)
         condesed_inputs_embeds = torch.cat((condensed_tokens, inputs_embeds), dim=1)
         return self.decoder_model.generate(inputs_embeds=condesed_inputs_embeds, max_new_tokens=max_new_tokens, **kwargs)
 
@@ -64,7 +65,7 @@ if __name__ == "__main__":
     dataset = load_dataset("Condense-AI/benchmark-condense-v0.1", split="train")
     context = dataset[0]["context"]
     # prompt = dataset[0]["activation_prompt"] + "[/INST]"
-    prompt = "</s> [INST] Please write above conversations in the following format: **[User]**: {user_message} **[Assistant]**: {assistant_message} --- (next conversation) [/INST]"
+    prompt = "</s> [INST] Please write above conversations in the following format:\n**[User]**: {user_message}\n**[Assistant]**: {assistant_message}\n--- \n(next conversation) [/INST]"
     condense_model = AutoModelForCausalLM.from_pretrained(condense_model_id, torch_dtype=torch.bfloat16).to("cuda")
     condense_tokenizer = AutoTokenizer.from_pretrained(condense_base_model_id)
     decoder_model = AutoModelForCausalLM.from_pretrained(decoder_model_id, torch_dtype=torch.bfloat16).to("cuda")
