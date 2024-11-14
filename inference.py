@@ -13,6 +13,7 @@ class Condenser(nn.Module):
         self.dtype = dtype
         self.condense_model = condense_model
         self.condense_tokenizer = condense_tokenizer
+        self.condense_tokenizer.pad_token = self.condense_tokenizer.eos_token
         self.decoder_model = decoder_model
         self.decoder_tokenizer = decoder_tokenizer
         self.num_condense_tokens = num_condense_tokens
