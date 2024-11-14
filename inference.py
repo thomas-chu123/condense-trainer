@@ -4,6 +4,7 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 import torch.nn as nn
 from typing import Tuple, Optional
 condense_model_id = "Condense-AI/Condenser-Llama-3.2-1B"
+condense_base_model_id = "meta-llama/Llama-3.2-1B"
 decoder_model_id = "Condense-AI/Mistral-7B-Instruct-v0.2"
 
 class Condenser(nn.Module):
@@ -54,20 +55,13 @@ class Condenser(nn.Module):
         condensed_tokens = self.linear(self.norm(concated_hidden_states))
         return condensed_tokens
         
-    def generate(self, context: str, prompt: str, max_new_tokens: int, **kwargs):
+    def generate(self, context: str, prompt: str, **kwargs):
         output = self.condense_tokenizer(context, return_tensors="pt", add_special_tokens=False, padding="max_length", max_length=4096, truncation=True, return_attention_mask=True)
         context_ids = output.input_ids.to(device="cuda")
-        print(context_ids.shape)
         attention_mask = output.attention_mask.to(device="cuda")
-        print(attention_mask.shape)
         prompt_ids = self.decoder_tokenizer.encode(prompt, return_tensors="pt", add_special_tokens=False).to(device="cuda").long()
-        print(prompt_ids.shape)
         condensed_tokens, inputs_embeds = self.forward(context_ids, prompt_ids, attention_mask)
-        print(condensed_tokens.shape)
-        print(inputs_embeds.shape)
-        condesed_inputs_embeds = torch.cat((condensed_tokens, inputs_embeds), dim=1)
-        print(condesed_inputs_embeds.shape)
-        return self.decoder_model.generate(inputs_embeds=condesed_inputs_embeds, max_new_tokens=max_new_tokens, **kwargs)
+        return self.decoder_model.generate(inputs_embeds=inputs_embeds, **kwargs)
 
 if __name__ == "__main__":
     from datasets import load_dataset
@@ -76,7 +70,7 @@ if __name__ == "__main__":
     prompt = dataset[0]["activation_prompt"] + "[/INST]"
     prompt = "</s> [INST] Please write above conversations in the following format:\n**[User]**: {user_message}\n**[Assistant]**: {assistant_message}\n--- \n(next conversation)[/INST]"
     condense_model = AutoModelForCausalLM.from_pretrained(condense_model_id, torch_dtype=torch.bfloat16).to("cuda")
-    condense_tokenizer = AutoTokenizer.from_pretrained(condense_model_id)
+    condense_tokenizer = AutoTokenizer.from_pretrained(condense_base_model_id)
     decoder_model = AutoModelForCausalLM.from_pretrained(decoder_model_id, torch_dtype=torch.bfloat16).to("cuda")
     decoder_tokenizer = AutoTokenizer.from_pretrained(decoder_model_id)
 
