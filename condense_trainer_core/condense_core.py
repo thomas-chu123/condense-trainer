@@ -11,6 +11,7 @@ from peft import get_peft_model, LoraConfig
 import os
 import traceback
 import time
+import huggingface_hub
 
 class LitCondenseLLM(L.LightningModule):
     def __init__(
