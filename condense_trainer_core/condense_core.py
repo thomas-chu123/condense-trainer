@@ -219,3 +219,35 @@ class LitCondenseLLM(L.LightningModule):
         # Setting use_reentrant=False avoids potential issues with backward pass recomputation
         separate_decoder.gradient_checkpointing_enable({"use_reentrant": False})
         return separate_decoder
+
+    @classmethod
+    def from_pretrained(cls, condense_model_id: str, decoder_model_id: str, checkpoint_path: str = None):
+        """Load a pretrained Condenser model."""
+        # Load the checkpoint if path is provided, otherwise download from hub
+        if checkpoint_path is None:
+            checkpoint_path = huggingface_hub.hf_hub_download(
+                repo_id=condense_model_id, 
+                filename="checkpoints/modules.pt"
+            )
+        
+        state_dict = torch.load(checkpoint_path)
+        num_condense_tokens = state_dict["modules"]["pre_condensed_tokens"].shape[1]
+        n_last_hidden_states = 2  # This is hardcoded in inference.py
+        
+        # Initialize model
+        model = cls(
+            model_id=condense_model_id,
+            separate_model_id=decoder_model_id,
+            num_condense_tokens=num_condense_tokens,
+            n_last_hidden_states=n_last_hidden_states
+        )
+        
+        # Load state dict for the learnable parameters
+        model.pre_condensed_tokens.data = state_dict["modules"]["pre_condensed_tokens"].to(
+            dtype=model.pre_condensed_tokens.dtype,
+            device=model.pre_condensed_tokens.device
+        )
+        model.linear.load_state_dict(state_dict["modules"]["linear_state_dict"])
+        model.norm.load_state_dict(state_dict["modules"]["norm_state_dict"])
+        
+        return model

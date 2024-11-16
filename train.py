@@ -22,7 +22,7 @@ if args.test:
 else:
     model_id = "meta-llama/Llama-3.2-1B"
     separate_model_id = "Condense-AI/Mistral-7B-Instruct-v0.2"
-lit_model = LitCondenseLLM(model_id, separate_model_id, num_condense_tokens=num_condense_tokens, max_seq_length=max_tokens)
+lit_model = LitCondenseLLM.from_pretrained(model_id, separate_model_id)
 
 tokenizer = lit_model.tokenizer
 separate_tokenizer = lit_model.separate_tokenizer
