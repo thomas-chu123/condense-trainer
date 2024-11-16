@@ -18,6 +18,7 @@ class LitCondenseLLM(L.LightningModule):
         self,
         model_id: str,
         separate_model_id: str,
+        pretrained_id: str,
         num_condense_tokens: int = 386,
         max_seq_length: int = 4096,
         n_last_hidden_states: int = 2,
@@ -28,7 +29,7 @@ class LitCondenseLLM(L.LightningModule):
     ):
         super().__init__()
         self.max_seq_length = max_seq_length
-        self.model = AutoModelForCausalLM.from_pretrained(model_id, torch_dtype=torch.bfloat16).to("cuda")
+        self.model = AutoModelForCausalLM.from_pretrained(pretrained_id or model_id, torch_dtype=torch.bfloat16).to("cuda")
         self.model = get_peft_model(self.model, peft_config=LoraConfig(
             task_type="CAUSAL_LM",
             r=lora_r,
@@ -224,12 +225,12 @@ class LitCondenseLLM(L.LightningModule):
         return separate_decoder
 
     @classmethod
-    def from_pretrained(cls, condense_model_id: str, decoder_model_id: str, checkpoint_path: str = None):
+    def from_pretrained(cls, condense_model_id: str, decoder_model_id: str, pretrained_id: str, checkpoint_path: str = None):
         """Load a pretrained Condenser model."""
         # Load the checkpoint if path is provided, otherwise download from hub
         if checkpoint_path is None:
             checkpoint_path = huggingface_hub.hf_hub_download(
-                repo_id=condense_model_id, 
+                repo_id=pretrained_id, 
                 filename="checkpoints/modules.pt"
             )
         
@@ -241,6 +242,7 @@ class LitCondenseLLM(L.LightningModule):
         model = cls(
             model_id=condense_model_id,
             separate_model_id=decoder_model_id,
+            pretrained_id=pretrained_id,
             num_condense_tokens=num_condense_tokens,
             n_last_hidden_states=n_last_hidden_states
         )
