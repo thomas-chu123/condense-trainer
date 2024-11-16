@@ -20,7 +20,7 @@ if args.test:
     model_id = "HuggingFaceTB/SmolLM2-135M"
     separate_model_id = "HuggingFaceTB/SmolLM2-135M"
 else:
-    model_id = "meta-llama/Llama-3.2-1B"
+    model_id = "Condense-AI/Condenser-Llama-3.2-1B"
     separate_model_id = "Condense-AI/Mistral-7B-Instruct-v0.2"
 lit_model = LitCondenseLLM.from_pretrained(model_id, separate_model_id)
 
