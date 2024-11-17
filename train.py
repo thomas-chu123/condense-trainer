@@ -4,26 +4,46 @@ from torch.utils.data import DataLoader
 from lightning.pytorch.loggers import WandbLogger
 import torch
 import argparse
-torch.autograd.set_detect_anomaly(True)
 wandb_logger = WandbLogger(project="Condense")
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--test", action="store_true")
+parser.add_argument("--test", action="store_true", help="Use smaller test models")
+parser.add_argument("--pretrained_id", type=str, default=None, help="HuggingFace repo ID of pretrained model")
+parser.add_argument("--num_condense_tokens", type=int, default=512, help="Number of condense tokens")
+parser.add_argument("--max_tokens", type=int, default=4096, help="Maximum number of tokens")
+parser.add_argument("--max_characters", type=int, default=10000, help="Maximum number of characters")
+parser.add_argument("--batch_size", type=int, default=1, help="Training batch size")
+parser.add_argument("--num_workers", type=int, default=8, help="Number of dataloader workers")
+parser.add_argument("--dataset_id", type=str, default="Condense-AI/benchmark-condense-v0.1", help="Dataset to use")
+parser.add_argument("--model_id", type=str, default=None, help="Model ID to use")
+parser.add_argument("--separate_model_id", type=str, default=None, help="Separate model ID to use")
 args = parser.parse_args()
 
-num_condense_tokens = 512
-max_tokens = 4096
-max_characters = 10000
+num_condense_tokens = args.num_condense_tokens
+max_tokens = args.max_tokens
+max_characters = args.max_characters
 
-dataset_id = "Condense-AI/benchmark-condense-v0.1"
-pretrained_id = "Condense-AI/Condenser-Llama-3.2-1B"
+dataset_id = args.dataset_id
 if args.test:
     model_id = "HuggingFaceTB/SmolLM2-135M"
     separate_model_id = "HuggingFaceTB/SmolLM2-135M"
 else:
-    model_id = "unsloth/Llama-3.2-1B"
-    separate_model_id = "Condense-AI/Mistral-7B-Instruct-v0.2"
-lit_model = LitCondenseLLM.from_pretrained(model_id, separate_model_id, pretrained_id)
+    model_id = args.model_id
+    separate_model_id = args.separate_model_id
+
+print(f"Model ID: {model_id}")
+print(f"Separate Model ID: {separate_model_id}")
+print(f"Pretrained ID: {args.pretrained_id}")
+
+if args.pretrained_id is not None:
+    lit_model = LitCondenseLLM.from_pretrained(model_id, separate_model_id, args.pretrained_id)
+else:
+    lit_model = LitCondenseLLM(
+        model_id=model_id,
+        separate_model_id=separate_model_id,
+        num_condense_tokens=num_condense_tokens,
+        n_last_hidden_states=2
+    )
 
 tokenizer = lit_model.tokenizer
 separate_tokenizer = lit_model.separate_tokenizer
@@ -52,7 +72,7 @@ trainer = Trainer(
     limit_val_batches=100,
 )
 
-train_loader = DataLoader(train_dataset, batch_size=1, shuffle=True, num_workers=8)
-validation_loader = DataLoader(validation_dataset, batch_size=1, shuffle=False, num_workers=8)
+train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers)
+validation_loader = DataLoader(validation_dataset, batch_size=args.batch_size, shuffle=False, num_workers=args.num_workers)
 
 trainer.fit(lit_model, train_loader, validation_loader)
