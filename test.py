@@ -1,12 +1,14 @@
 import requests
 from transformers import AutoTokenizer, pipeline
-
+import torch
 class ConvoGenerator:
     def __init__(self, model_id="meta-llama/Meta-Llama-3.1-8B-Instruct", api_key=None):
         self.model_id = model_id
         self.together_model_id = f"{model_id}-Turbo"
+        self.device = "cuda" if torch.cuda.is_available() else "cpu"
+        assert self.device == "cuda", "CUDA is not available"
         self.tokenizer = AutoTokenizer.from_pretrained(model_id)
-        self.pipeline = pipeline("text-generation", model=model_id, tokenizer=self.tokenizer)
+        self.pipeline = pipeline("text-generation", model=model_id, tokenizer=self.tokenizer, device=self.device)
     
     def _get_assistant_messages(self, messages):
         a_messages = messages[2:]  # Skip system and initial user message
