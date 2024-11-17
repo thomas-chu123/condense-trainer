@@ -7,23 +7,6 @@ class ConvoGenerator:
         self.together_model_id = f"{model_id}-Turbo"
         self.tokenizer = AutoTokenizer.from_pretrained(model_id)
         self.pipeline = pipeline("text-generation", model=model_id, tokenizer=self.tokenizer)
-        self.api_key = api_key
-        self.url = "https://api.together.xyz/v1/chat/completions"
-        
-    def _get_headers(self):
-        return {
-            "accept": "application/json",
-            "content-type": "application/json",
-            "authorization": f"Bearer {self.api_key}"
-        }
-    
-    def _get_payload(self, messages):
-        return {
-            "model": self.together_model_id,
-            "messages": messages,
-            "temperature": 0.7,
-            "top_p": 0.95,
-        }
     
     def _get_assistant_messages(self, messages):
         a_messages = messages[2:]  # Skip system and initial user message
@@ -33,11 +16,6 @@ class ConvoGenerator:
             else:
                 a_messages[i]["role"] = "assistant"
         return a_messages
-    
-    def _make_api_call(self, messages):
-        payload = self._get_payload(messages)
-        response = requests.post(self.url, json=payload, headers=self._get_headers())
-        return response.json()["choices"][0]["message"]["content"]
     
     def generate_conversation(
             self, 
@@ -85,8 +63,8 @@ class ConvoGenerator:
             "total_tokens": total_tokens
         }
     
-    def generate(self, messages):
-        output = self.pipeline(messages)
+    def generate(self, messages, max_new_tokens=1024):
+        output = self.pipeline(messages, max_new_tokens=max_new_tokens)
         return output[0]["generated_text"][-1]["content"]
 
 if __name__ == "__main__":
