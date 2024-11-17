@@ -20,13 +20,13 @@ class SubnetSyntheticDataset(Dataset):
     ):
         # Load full training dataset since only train split exists
         full_dataset = load_dataset(dataset_id, split="train", streaming=False)
-        full_dataset = full_dataset.filter(lambda x: x["task"] == "question_answering")
+        # full_dataset = full_dataset.filter(lambda x: x["task"] == "question_answering")
         full_dataset = full_dataset.shuffle(seed=42)
         # Split into train/test based on split parameter
         if split == "train":
-            self.dataset = full_dataset.select(range(0, int(0.8 * len(full_dataset))))
+            self.dataset = full_dataset.select(range(0, int(0.9 * len(full_dataset))))
         else:
-            self.dataset = full_dataset.select(range(int(0.8 * len(full_dataset)), len(full_dataset)))
+            self.dataset = full_dataset.select(range(int(0.1 * len(full_dataset)), len(full_dataset)))
             
         self.tokenizer = tokenizer
         self.num_condense_tokens = num_condense_tokens
