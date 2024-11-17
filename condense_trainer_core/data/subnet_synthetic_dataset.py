@@ -20,7 +20,7 @@ class SubnetSyntheticDataset(Dataset):
     ):
         # Load full training dataset since only train split exists
         full_dataset = load_dataset(dataset_id, split="train", streaming=False)
-        # full_dataset = full_dataset.filter(lambda x: x["task"] == "reconstruction")
+        full_dataset = full_dataset.filter(lambda x: x["task"] == "question_answering")
         full_dataset = full_dataset.shuffle(seed=42)
         # Split into train/test based on split parameter
         if split == "train":
@@ -61,11 +61,20 @@ class SubnetSyntheticDataset(Dataset):
             padding="max_length",
             truncation=True,
         )
+        activation_prompt_ids = self.separate_tokenizer.encode(
+            activation_prompt,
+            add_special_tokens=False,
+            return_tensors="pt",
+            max_length=self.max_length,
+            padding="max_length",
+            truncation=True,
+        )
 
         return {
             "context": context_ids.squeeze(0),
             "context_mask": context_mask.squeeze(0),
             "uncondensed": expected_completion_ids.squeeze(0),
+            "activation_prompt": activation_prompt_ids.squeeze(0),
             "str_context": context,
             "str_uncondensed": full_completion,
         }

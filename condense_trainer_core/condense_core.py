@@ -135,8 +135,12 @@ class LitCondenseLLM(L.LightningModule):
         
         # Generate text during validation
         with torch.no_grad():
+            activation_prompt_ids = batch["activation_prompt"]
+            activation_prompt_embeds = self.separate_decoder.get_input_embeddings()(activation_prompt_ids)
+            inputs_embeds = torch.cat([inputs_embeds[:, :self.num_condense_tokens, :], activation_prompt_embeds], dim=1)
+
             generated_ids = self.separate_decoder.generate(
-                inputs_embeds=inputs_embeds[:, :self.num_condense_tokens + 128, :],
+                inputs_embeds=inputs_embeds,
                 max_new_tokens=100,
                 min_new_tokens=100,
                 num_return_sequences=1,
