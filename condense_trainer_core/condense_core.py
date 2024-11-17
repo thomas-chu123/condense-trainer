@@ -18,7 +18,7 @@ class LitCondenseLLM(L.LightningModule):
         self,
         model_id: str,
         separate_model_id: str,
-        pretrained_id: str,
+        pretrained_id: str = None,
         num_condense_tokens: int = 386,
         max_seq_length: int = 4096,
         n_last_hidden_states: int = 2,
