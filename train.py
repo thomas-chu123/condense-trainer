@@ -16,7 +16,7 @@ parser.add_argument("--batch_size", type=int, default=1, help="Training batch si
 parser.add_argument("--num_workers", type=int, default=8, help="Number of dataloader workers")
 parser.add_argument("--dataset_id", type=str, default="Condense-AI/benchmark-condense-v0.1", help="Dataset to use")
 parser.add_argument("--model_id", type=str, default=None, help="Model ID to use")
-parser.add_argument("--separate_model_id", type=str, default=None, help="Separate model ID to use")
+parser.add_argument("--target_model_id", type=str, default=None, help="Target model ID to use")
 args = parser.parse_args()
 
 num_condense_tokens = args.num_condense_tokens
@@ -26,21 +26,21 @@ max_characters = args.max_characters
 dataset_id = args.dataset_id
 if args.test:
     model_id = "HuggingFaceTB/SmolLM2-135M"
-    separate_model_id = "HuggingFaceTB/SmolLM2-135M"
+    target_model_id = "HuggingFaceTB/SmolLM2-135M"
 else:
     model_id = args.model_id
-    separate_model_id = args.separate_model_id
+    target_model_id = args.target_model_id
 
 print(f"Model ID: {model_id}")
-print(f"Separate Model ID: {separate_model_id}")
+print(f"Target Model ID: {target_model_id}")
 print(f"Pretrained ID: {args.pretrained_id}")
 
 if args.pretrained_id is not None:
-    lit_model = LitCondenseLLM.from_pretrained(model_id, separate_model_id, args.pretrained_id)
+    lit_model = LitCondenseLLM.from_pretrained(model_id, target_model_id, args.pretrained_id)
 else:
     lit_model = LitCondenseLLM(
         model_id=model_id,
-        separate_model_id=separate_model_id,
+        target_model_id=target_model_id,
         num_condense_tokens=num_condense_tokens,
         n_last_hidden_states=2
     )

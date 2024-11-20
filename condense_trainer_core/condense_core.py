@@ -17,7 +17,7 @@ class LitCondenseLLM(L.LightningModule):
     def __init__(
         self,
         model_id: str,
-        separate_model_id: str,
+        target_model_id: str,
         pretrained_id: str = None,
         num_condense_tokens: int = 386,
         max_seq_length: int = 4096,
@@ -44,9 +44,9 @@ class LitCondenseLLM(L.LightningModule):
         self.num_condense_tokens = num_condense_tokens
         self.n_last_hidden_states = n_last_hidden_states
         self.hidden_size = self.model.config.hidden_size
-        self.separate_decoder = self.create_separate_decoder(separate_model_id)
-        self.separate_tokenizer = AutoTokenizer.from_pretrained(separate_model_id)
-        self.base_model_hidden_size = self.separate_decoder.config.hidden_size
+        self.target_decoder = self.create_target_decoder(target_model_id)
+        self.separate_tokenizer = AutoTokenizer.from_pretrained(target_model_id)
+        self.base_model_hidden_size = self.target_decoder.config.hidden_size
         # Initialize learnable parameters
         self.norm = nn.LayerNorm(self.hidden_size * self.n_last_hidden_states)
         self.pre_condensed_tokens = nn.Parameter(
@@ -60,7 +60,7 @@ class LitCondenseLLM(L.LightningModule):
         self.best_checkpoints = []
         self.hf_api = HfApi()
         self.hf_save_repo = f"Condense-AI/Condenser-{model_id.split('/')[-1]}-{time.strftime('%Y%m%d-%H%M%S')}"
-        self.commit_description = (f"Condenser-{model_id.split('/')[-1]}, {separate_model_id.split('/')[-1]}, "
+        self.commit_description = (f"Condenser-{model_id.split('/')[-1]}, {target_model_id.split('/')[-1]}, "
                                    f"LoRA r={lora_r}, LoRA alpha={lora_alpha}, LoRA dropout={lora_dropout}")
         self.output_dir = output_dir
 
@@ -110,7 +110,7 @@ class LitCondenseLLM(L.LightningModule):
         
         condensed_tokens = self.forward(inputs_embeds_condense, attention_mask=context_mask)
         
-        uncondensed_embeds = self.separate_decoder.get_input_embeddings()(uncondensed_ids)
+        uncondensed_embeds = self.target_decoder.get_input_embeddings()(uncondensed_ids)
         
         inputs_embeds = torch.cat([condensed_tokens, uncondensed_embeds], dim=1)
         
@@ -118,7 +118,7 @@ class LitCondenseLLM(L.LightningModule):
 
     def training_step(self, batch):
         inputs_embeds, labels = self._process_batch(batch)
-        output = self.separate_decoder(inputs_embeds=inputs_embeds)
+        output = self.target_decoder(inputs_embeds=inputs_embeds)
         logits = output.logits
         loss = self.loss_fn(logits, labels)
         self.log("train_loss", loss, on_step=True, on_epoch=True, prog_bar=True)
@@ -129,17 +129,17 @@ class LitCondenseLLM(L.LightningModule):
 
     def validation_step(self, batch):
         inputs_embeds, labels = self._process_batch(batch)
-        output = self.separate_decoder(inputs_embeds=inputs_embeds)
+        output = self.target_decoder(inputs_embeds=inputs_embeds)
         logits = output.logits
         loss = self.loss_fn(logits, labels)
         
         # Generate text during validation
         with torch.no_grad():
             activation_prompt_ids = batch["activation_prompt"]
-            activation_prompt_embeds = self.separate_decoder.get_input_embeddings()(activation_prompt_ids)
+            activation_prompt_embeds = self.target_decoder.get_input_embeddings()(activation_prompt_ids)
             inputs_embeds = torch.cat([inputs_embeds[:, :self.num_condense_tokens, :], activation_prompt_embeds], dim=1)
 
-            generated_ids = self.separate_decoder.generate(
+            generated_ids = self.target_decoder.generate(
                 inputs_embeds=inputs_embeds,
                 max_new_tokens=100,
                 min_new_tokens=100,
@@ -218,25 +218,23 @@ class LitCondenseLLM(L.LightningModule):
             "optimizer": optimizer,
         }
     
-    def create_separate_decoder(self, model_name_or_pretrained_path, **kwargs):
-        separate_decoder = AutoModelForCausalLM.from_pretrained(model_name_or_pretrained_path, torch_dtype=torch.bfloat16).to("cuda")
+    def create_target_decoder(self, model_name_or_pretrained_path, **kwargs):
+        target_decoder = AutoModelForCausalLM.from_pretrained(model_name_or_pretrained_path, torch_dtype=torch.bfloat16).to("cuda")
 
-        for _, param in separate_decoder.named_parameters():
+        for _, param in target_decoder.named_parameters():
             param.requires_grad = False
         # Enable gradient checkpointing to reduce memory usage during training
         # Setting use_reentrant=False avoids potential issues with backward pass recomputation
-        separate_decoder.gradient_checkpointing_enable({"use_reentrant": False})
-        return separate_decoder
+        target_decoder.gradient_checkpointing_enable({"use_reentrant": False})
+        return target_decoder
 
     @classmethod
-    def from_pretrained(cls, condense_model_id: str, decoder_model_id: str, pretrained_id: str, checkpoint_path: str = None):
+    def from_pretrained(cls, condense_model_id: str, target_model_id: str, pretrained_id: str, checkpoint_path: str = None):
         """Load a pretrained Condenser model."""
-        # Load the checkpoint if path is provided, otherwise download from hub
-        if checkpoint_path is None:
-            checkpoint_path = huggingface_hub.hf_hub_download(
-                repo_id=pretrained_id, 
-                filename="checkpoints/modules.pt"
-            )
+        checkpoint_path = huggingface_hub.hf_hub_download(
+            repo_id=pretrained_id, 
+            filename="checkpoints/modules.pt"
+        )
         
         state_dict = torch.load(checkpoint_path)
         num_condense_tokens = state_dict["modules"]["pre_condensed_tokens"].shape[1]
@@ -245,7 +243,7 @@ class LitCondenseLLM(L.LightningModule):
         # Initialize model
         model = cls(
             model_id=condense_model_id,
-            separate_model_id=decoder_model_id,
+            target_model_id=target_model_id,
             pretrained_id=pretrained_id,
             num_condense_tokens=num_condense_tokens,
             n_last_hidden_states=n_last_hidden_states
