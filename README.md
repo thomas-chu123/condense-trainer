@@ -2,6 +2,32 @@
 
 A PyTorch Lightning framework for training condensed token representations in Large Language Models (LLMs). This project enables efficient context compression while maintaining semantic meaning.
 
+## 🧠 Concept & Architecture
+
+The Condense framework uses a novel two-stage architecture to compress long contexts into a fixed number of learned token representations:
+
+### 1. Condensation Stage
+- Takes a long input context (e.g. 4096 tokens) and compresses it into a small fixed number of "condensed tokens" (e.g. 512)
+- Uses learnable token embeddings that are trained to capture key semantic information
+- Employs a multi-layer architecture:
+  - Input embedding layer
+  - Learnable condensation tokens
+  - Layer normalization
+  - Linear projection to target model dimensions
+
+### 2. Decoding Stage  
+- A frozen decoder model (e.g. Mistral-7B) processes the condensed tokens
+- The condensed tokens act as a "semantic memory" that the model can reference
+- The decoder generates text based on both:
+  - The condensed context representation
+  - The current prompt/instruction
+
+### Key Benefits
+- **Memory Efficiency**: Compress long contexts into a fixed memory budget
+- **Semantic Preservation**: Maintains important meaning and relationships
+- **Model Agnostic**: Can work with any transformer decoder
+- **Fast Inference**: No need to reprocess long contexts
+
 ## 🚀 Key Features
 
 - **Token Condensation**: Compress long contexts into learned token representations
@@ -41,26 +67,30 @@ python train.py --test
 - Training Precision: BF16
 - Optimizer: AdamW with grouped learning rates
 
-## 🏗️ Architecture
+## 🏗️ Technical Architecture
 
 The system consists of three main components:
 
 1. **Condensation Module**
-   - Learnable token embeddings
-   - Linear projection layer
-   - Layer normalization
-   - LoRA fine-tuning
+   - Learnable token embeddings initialized randomly
+   - Linear projection layer to match decoder dimensions
+   - Layer normalization for stable training
+   - LoRA fine-tuning for memory efficiency
+   - Processes last N hidden states for richer representations
 
 2. **Frozen Decoder**
-   - Separate decoder model
+   - Pre-trained language model (e.g. Mistral-7B)
+   - Weights frozen during training
    - Zero-shot inference capability
    - Gradient checkpointing enabled
+   - Processes condensed tokens + prompts
 
 3. **Training Pipeline**
-   - PyTorch Lightning based
+   - PyTorch Lightning based training loop
    - Automatic model checkpointing
    - WandB logging integration
    - Multi-worker data loading
+   - Validation with text generation
 
 ## 📊 Dataset
 
@@ -69,6 +99,7 @@ Uses the `SubnetSyntheticDataset` class which:
 - Handles tokenization for both models
 - Supports train/test splitting
 - Implements dynamic padding
+- Manages context/prompt pairs
 
 ## ⚙️ Configuration
 
@@ -88,6 +119,7 @@ Checkpoints are automatically saved to Hugging Face Hub and include:
 - Layer normalization parameters
 - LoRA weights
 
+The output checkpoints can be directly loaded on the subnet miner backend.
 ## 📝 License
 
 MIT License
