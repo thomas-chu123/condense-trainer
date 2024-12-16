@@ -59,7 +59,7 @@ class LitCondenseLLM(L.LightningModule):
         self.best_val_loss = float("inf")
         self.best_checkpoints = []
         self.hf_api = HfApi()
-        self.hf_save_repo = f"Condense-AI/Condenser-{model_id.split('/')[-1]}-{time.strftime('%Y%m%d-%H%M%S')}"
+        self.hf_save_repo = f"ThomasChu/Condenser-{model_id.split('/')[-1]}-{time.strftime('%Y%m%d-%H%M%S')}"
         self.commit_description = (f"Condenser-{model_id.split('/')[-1]}, {target_model_id.split('/')[-1]}, "
                                    f"LoRA r={lora_r}, LoRA alpha={lora_alpha}, LoRA dropout={lora_dropout}")
         self.output_dir = output_dir
